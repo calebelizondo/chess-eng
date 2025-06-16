@@ -1,10 +1,11 @@
 #include "board.h"
 #include <stdio.h>
+#include <assert.h>
 
 const struct BoardState STARTING_BOARD_STATE = {
     .turn= WHITE,
     .state= ACTIVE,
-    .white = {
+    .black = {
         .king = 0b0000100000000000000000000000000000000000000000000000000000000000,
         .queens = 0b0001000000000000000000000000000000000000000000000000000000000000,
         .rooks = 0b1000000100000000000000000000000000000000000000000000000000000000,
@@ -12,7 +13,7 @@ const struct BoardState STARTING_BOARD_STATE = {
         .bishops = 0b0010010000000000000000000000000000000000000000000000000000000000,
         .pawns = 0b0000000011111111000000000000000000000000000000000000000000000000,
     },
-    .black = {
+    .white = {
         .king = 0b0000000000000000000000000000000000000000000000000000000000001000,
         .queens = 0b000000000000000000000000000000000000000000000000000000000010000,
         .rooks = 0b0000000000000000000000000000000000000000000000000000000010000001,
@@ -29,22 +30,56 @@ char* boardStateToArray(struct BoardState* board_state) {
 
         uint64_t mask = 1ULL << i;
 
-        if (board_state->white.king & mask) { board[i] = 'K'; continue; }
-        if (board_state->white.queens & mask) { board[i] = 'Q'; continue; }
-        if (board_state->white.rooks & mask) { board[i] = 'R'; continue; }
-        if (board_state->white.knights & mask) { board[i] = 'N'; continue; }
-        if (board_state->white.bishops & mask) { board[i] = 'B'; continue; }
-        if (board_state->white.pawns & mask) { board[i] = 'P'; continue; }
+        if (board_state->white.king & mask) { board[i] = 'K'; }
+        else if (board_state->white.queens & mask) { board[i] = 'Q'; }
+        else if (board_state->white.rooks & mask) { board[i] = 'R'; }
+        else if (board_state->white.knights & mask) { board[i] = 'N'; }
+        else if (board_state->white.bishops & mask) { board[i] = 'B'; }
+        else if (board_state->white.pawns & mask) { board[i] = 'P'; }
 
-        if (board_state->black.king & mask) { board[i] = 'k'; continue; }
-        if (board_state->black.queens & mask) { board[i] = 'q'; continue; }
-        if (board_state->black.rooks & mask) { board[i] = 'r'; continue; }
-        if (board_state->black.knights & mask) { board[i] = 'n'; continue; }
-        if (board_state->black.bishops & mask) { board[i] = 'b'; continue; }
-        if (board_state->black.pawns & mask) { board[i] = 'p'; continue; }
-        board[i] = '.';
+        else if (board_state->black.king & mask) { board[i] = 'k'; }
+        else if (board_state->black.queens & mask) { board[i] = 'q'; }
+        else if (board_state->black.rooks & mask) { board[i] = 'r'; }
+        else if (board_state->black.knights & mask) { board[i] = 'n'; }
+        else if (board_state->black.bishops & mask) { board[i] = 'b'; }
+        else if (board_state->black.pawns & mask) { board[i] = 'p'; }
+        else board[i] = '.';
     }
 
     board[64] = '\0';
     return board;
+}
+
+
+void printBoard(struct BoardState* board_state) {
+    char* board = boardStateToArray(board_state);
+
+    printf("  +------------------------+\n");
+    for (int rank = 7; rank >= 0; rank--) {
+        printf("%d |", rank + 1);
+        for (int file = 0; file < 8; file++) {
+            int index = rank * 8 + file;
+            printf(" %c", board[index]);
+        }
+        printf(" |\n");
+    }
+    printf("  +------------------------+\n");
+    printf("    a b c d e f g h\n");
+}
+
+
+Position bitmapToPosition(uint64_t position) {
+    Position pos; 
+    assert(position != 0 && (position & (position - 1)) == 0);
+
+    int index = __builtin_ctzll(position);
+
+    int rowIndex = index / 8;
+    int colIndex = index % 8;
+
+    pos.row = rowIndex + 1;
+    pos.file = 'a' + colIndex;
+
+    return pos;
+    
 }

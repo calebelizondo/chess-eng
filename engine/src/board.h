@@ -14,6 +14,11 @@ struct PiecePositions {
 typedef enum { WHITE, BLACK } TURN;
 typedef enum { ACTIVE, INACTIVE } GAME_STATE;
 
+typedef struct {
+    char file;
+    char row;
+} Position;
+
 struct BoardState {
     TURN turn;
     GAME_STATE state;
@@ -22,6 +27,8 @@ struct BoardState {
 };
 
 extern const struct BoardState STARTING_BOARD_STATE;
+extern Position bitmapToPosition(uint64_t position);
+extern void printBoard(struct BoardState* board_state);
 extern char* boardStateToArray(struct BoardState* board_state);
 
 #endif

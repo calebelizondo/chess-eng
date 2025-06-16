@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "board.h"
+#include "moves.h"
+#include <emscripten.h>
 
 struct BoardState* current_board_state = NULL;
 
@@ -13,11 +15,16 @@ int main() {
     }
 
     *current_board_state = STARTING_BOARD_STATE;
-
-    char* board_str = boardStateToArray(current_board_state);
-
-    printf(board_str);
-
-    printf("board initialized!\n");
+    
     return 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void printCurrentBoardState() {
+    printBoard(current_board_state);
+}
+
+EMSCRIPTEN_KEEPALIVE
+char* getCurrentBoardState() {
+    return boardStateToArray(current_board_state);
 }

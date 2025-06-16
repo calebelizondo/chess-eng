@@ -2,13 +2,15 @@
 CC = emcc
 
 SRC_DIR = src
-BUILD_DIR = build
+# BUILD_DIR = ../interface/public/build
+BUILD_DIR = ./build
 
 SRC = $(wildcard $(SRC_DIR)/*.c)
 OUT_JS = $(BUILD_DIR)/main.js
 
 CFLAGS = -O2
-EMCC_FLAGS = -s WASM=1
+# EMCC_FLAGS = -s WASM=1 -s MODULARIZE=1 -s EXPORT_NAME="Module"
+EMCC_FLAGS = -s EXPORTED_RUNTIME_METHODS=["cwrap"]
 
 all: $(OUT_JS)
 

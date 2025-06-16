@@ -13,10 +13,15 @@
     script.onload = () => {
       if (typeof Module !== 'undefined') {
         Module.onRuntimeInitialized = function () {
-          console.log('WASM is ready!');
+          console.log('WASM loaded properly');
+          const printBoard = Module.cwrap('printCurrentBoardState');
+          console.log("calling print board!");
+          printBoard();
         };
       }
     };
+
+
     document.body.appendChild(script);
   </script>
 </body>
