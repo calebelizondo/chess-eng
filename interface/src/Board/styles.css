@@ -1,22 +1,28 @@
 .board {
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    grid-template-columns: repeat(8, 1fr);
-    height: 100vh;
-    width: 100vh;
+  display: grid;
+  grid-template-columns: repeat(8, 150px);
+  grid-template-rows: repeat(8, 150px);
+  width: fit-content;
+  border: 2px solid #333;
 }
 
 .square {
-    display: grid;
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr;
-    padding: 4px;
+  width: 150px;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.white {
-    background-color: white;
+.square.white {
+  background-color: #eee;
 }
 
-.black {
-    background-color: black;
+.square.black {
+  background-color: #666;
+}
+
+.square svg {
+  width: 80%;
+  height: 80%;
 }

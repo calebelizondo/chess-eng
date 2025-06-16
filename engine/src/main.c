@@ -25,6 +25,11 @@ void printCurrentBoardState() {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void resetGame() {
+    *current_board_state = STARTING_BOARD_STATE;
+}
+
+EMSCRIPTEN_KEEPALIVE
 char* getCurrentBoardState() {
     return boardStateToArray(current_board_state);
 }

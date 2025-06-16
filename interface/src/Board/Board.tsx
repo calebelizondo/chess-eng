@@ -1,12 +1,18 @@
-import Piece from "../Piece/Piece";
+import { useGameState } from "../GameState/GameState";
 import "./styles.css";
+import renderPiece from "./utils/renderPiece";
 
 const Board = () => {
+
+  const state = useGameState(); 
+
+  if (state === null || state?.positions === null) return <></>;
+
   return (
     <div className="board">
-        {   Array.from({length: 64}).map((_, idx: number) => {
+        {   state.positions.split("").map((char: string, idx: number) => {
             return <div key={idx} className={"square " + (((idx + Math.floor(idx / 8)) % 2) == 0 ? "white" : "black")}>
-                <Piece type="BISHOP" side="WHITE"></Piece>
+                {renderPiece(char)}
             </div>
         })
         }
