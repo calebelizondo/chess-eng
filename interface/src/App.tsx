@@ -1,8 +1,7 @@
-import { useEffect } from 'react'
 import './App.css'
 import Board from './Board/Board'
 import { GameStateProvider } from './GameState/GameState'
-import { ENGINE } from './Engine/loadEngine'
+import Menu from './Menu/Menu'
 
 function App() {
 
@@ -16,10 +15,7 @@ function App() {
             gridTemplateColumns: "1fr"
           }}>
             <Board />
-            <div>
-              <button>Reset Board</button>
-              <button>Print board</button>
-            </div>
+            <Menu />
           </div>
         </GameStateProvider>
     </>

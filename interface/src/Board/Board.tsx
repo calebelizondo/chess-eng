@@ -1,18 +1,18 @@
 import { useGameState } from "../GameState/GameState";
 import "./styles.css";
-import renderPiece from "./utils/renderPiece";
+import Piece from "../Piece/Piece";
 
 const Board = () => {
 
   const state = useGameState(); 
 
-  if (state === null || state?.positions === null) return <></>;
+  if (state === null || state?.state.positions === null) return <></>;
 
   return (
     <div className="board">
-        {   state.positions.split("").map((char: string, idx: number) => {
+        {   state.state.positions.split("").reverse().map((char: string, idx: number) => {
             return <div key={idx} className={"square " + (((idx + Math.floor(idx / 8)) % 2) == 0 ? "white" : "black")}>
-                {renderPiece(char)}
+                <Piece char={char} index={idx} />
             </div>
         })
         }

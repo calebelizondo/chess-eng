@@ -1,29 +1,60 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { ENGINE } from "../Engine/loadEngine";
-
+import { ENGINE } from "../Engine/Engine";
 
 export interface GameState {
-    positions: String | null,
-    turn: "WHITE" | "BLACK",
-    state: "ACTIVE" | "CHECK" | "CHECKMATE"
+    positions: String, 
+    activePiece: number | null
 }
 
-const GameStateContext = createContext<GameState | null>(null);
+export interface GameStateContextType {
+    state: GameState,
+    setState: (gs: GameState) => void,
+    setActivePiece: (ap: number | null) => void,
+    moveActivePieceTo: (to: number) => void,
+}
+
+
+
+const GameStateContext = createContext<GameStateContextType | null>(null);
 
 export const GameStateProvider: React.FC<{children: React.ReactNode}> = ({children}) => {
 
-    const [positions, setPositions] = useState<String | null>(null);
-    const [turn, setTurn] = useState<"WHITE" | "BLACK">("WHITE");
-    const [state, setState] = useState<"ACTIVE" | "CHECK" | "CHECKMATE">("ACTIVE");
+    const [gameState, setGameState] = useState<GameState>({
+        positions: "",
+        activePiece: null
+    });
+
+
+    useEffect(() => {console.log("active piece", gameState.activePiece)}, [gameState])
+
+
+    const moveActivePieceTo = (to: number) => {
+        console.log(`move active from ${gameState.activePiece} piece to ${to}`);
+        if (gameState === null || gameState.activePiece === null) throw new Error("attempting to move null piece!");
+        ENGINE.move(gameState.activePiece, to).then((result: String) => setGameState({positions: result, activePiece: null})).catch(() =>
+            {throw new Error("Error triggered when attempting to move piece")});
+    };
+
+    const setActivePiece = (ap: number | null) => {
+        if (gameState === null) return;
+        setGameState({...gameState, activePiece: ap});
+    };
 
     useEffect(() => {
-        ENGINE.getBoardState().then((result: String) => setPositions(result)).catch(() => 
+        ENGINE.getBoardState().then((result: String) => setGameState({positions: result, activePiece: null})).catch(() => 
             {throw new Error("Could not get game state from Engine!")});
     }, []);
     
 
     return (
-        <GameStateContext.Provider value={{positions, turn, state}}>{children}</GameStateContext.Provider>
+        <GameStateContext.Provider value={
+            {
+                state: gameState,
+                setState: setGameState,
+                setActivePiece,
+                moveActivePieceTo
+            }
+        }>{children}</GameStateContext.Provider>
     )
 }
 

@@ -28,11 +28,13 @@ class Engine {
     print();
   }
 
-  public async resetGame(): Promise<void> {
+  public async resetGame(): Promise<String> {
     await this.loadEngineModule();
 
-    const reset = this.module.cwrap('resetGame', null, []);
-    reset();
+    const reset = this.module.cwrap('resetGame', 'number', []);
+    const ptr = reset();
+    const boardStr = this.module.UTF8ToString(ptr);
+    return boardStr;
   }
 
   public async getBoardState(): Promise<String> {
@@ -40,6 +42,14 @@ class Engine {
 
     const getBoardStatePtr = this.module.cwrap('getCurrentBoardState', 'number', []);
     const ptr = getBoardStatePtr();
+    const boardStr = this.module.UTF8ToString(ptr);
+    return boardStr;
+  }
+
+  public async move(from: number, to: number): Promise<String> {
+    await this.loadEngineModule();
+    const m = this.module.cwrap('movePiece', 'number', ['number', 'number']);
+    const ptr = m(from, to);
     const boardStr = this.module.UTF8ToString(ptr);
     return boardStr;
   }
