@@ -26,10 +26,16 @@ struct BoardState {
     struct PiecePositions white;
 };
 
+extern const uint64_t AFILE;
+extern const uint64_t BFILE;
+extern const uint64_t HFILE;
+extern const uint64_t GFILE;
+
 extern const struct BoardState STARTING_BOARD_STATE;
 extern Position bitmapToPosition(uint64_t position);
 extern void printBoard(struct BoardState* board_state);
 extern char* boardStateToArray(struct BoardState* board_state);
 extern char* moveBitmapToString(uint64_t position);
+extern uint64_t stringPositionToBitmap(const char* str);
 
 #endif

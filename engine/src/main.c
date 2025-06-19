@@ -36,14 +36,16 @@ char* getCurrentBoardState() {
 }
 
 EMSCRIPTEN_KEEPALIVE
-char* movePiece(int from, int to) {
-    move(from, to, current_board_state);
+char* movePiece(char* from, char* to) {
+    move(stringPositionToBitmap(from), stringPositionToBitmap(to), current_board_state);
     return getCurrentBoardState();
 }
 
 EMSCRIPTEN_KEEPALIVE
-char* getValidPieceMoves(int idx) {
+char* getValidPieceMoves(char* piece) {
     //temp, black doesnt move yet. 
     current_board_state->turn = WHITE;
-    return moveBitmapToString(getValidMoves(idx, current_board_state));
+    uint64_t moveBitmap = getValidMoves(stringPositionToBitmap(piece), current_board_state);
+    printBinary(moveBitmap);
+    return moveBitmapToString(moveBitmap);
 }

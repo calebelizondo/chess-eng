@@ -1,6 +1,12 @@
 #include "board.h"
 #include <stdio.h>
 #include <assert.h>
+#include "utils.h"
+
+const uint64_t AFILE = 0b10000000100000001000000010000000100000001000000010000000;
+const uint64_t BFILE = 0b01000000010000000100000001000000010000000100000001000000;
+const uint64_t HFILE = 0b00000001000000010000000100000001000000010000000100000001;
+const uint64_t GFILE = 0b00000010000000100000001000000010000000100000001000000010;
 
 const struct BoardState STARTING_BOARD_STATE = {
     .turn= WHITE,
@@ -15,7 +21,7 @@ const struct BoardState STARTING_BOARD_STATE = {
     },
     .white = {
         .king = 0b0000000000000000000000000000000000000000000000000000000000001000,
-        .queens = 0b000000000000000000000000000000000000000000000000000000000010000,
+        .queens = 0b00000000000000000000000000000000000000000000000000000000010000,
         .rooks = 0b0000000000000000000000000000000000000000000000000000000010000001,
         .knights = 0b0000000000000000000000000000000000000000000000000000000001000010,
         .bishops = 0b0000000000000000000000000000000000000000000000000000000000100100,
@@ -28,7 +34,7 @@ char* boardStateToArray(struct BoardState* board_state) {
 
     for (int i = 0; i < 64; i++) {
 
-        uint64_t mask = 1ULL << i;
+        uint64_t mask = 1ULL << (63 - i);
 
         if (board_state->white.king & mask) { board[i] = 'K'; }
         else if (board_state->white.queens & mask) { board[i] = 'Q'; }
@@ -68,18 +74,19 @@ void printBoard(struct BoardState* board_state) {
 }
 
 
-char* moveBitmapToString(uint64_t position) {
-
-    static char move_str[65];
+char* moveBitmapToString(uint64_t moves) {
+    static char board[65];
 
     for (int i = 0; i < 64; i++) {
-        if ((position >> i) & 1ULL) {
-            move_str[i] = 'x';
-        } else {
-            move_str[i] = '.';
-        }
+
+        uint64_t mask = 1ULL << i;
+
+        if (moves & mask) { board[i] = 'x'; }
+        else board[i] = '.';
     }
-    return move_str;
+
+    board[64] = '\0';
+    return board;
 }
 
 Position bitmapToPosition(uint64_t position) {
@@ -91,9 +98,30 @@ Position bitmapToPosition(uint64_t position) {
     int rowIndex = index / 8;
     int colIndex = index % 8;
 
-    pos.row = rowIndex + 1;
-    pos.file = 'a' + colIndex;
+    pos.row = '1' + rowIndex;
+    pos.file = 'a' + (7 - colIndex);
 
     return pos;
     
+}
+
+
+uint64_t stringPositionToBitmap(const char* str) {
+    // Ensure valid input
+    assert(str[0] >= 'a' && str[0] <= 'h');
+    assert(str[1] >= '1' && str[1] <= '8');
+    printf("str:");
+    printf(str);
+
+    int file = str[0] - 'a';
+    int rank = str[1] - '1';
+
+    int index = (rank) * 8 + (7 - file);
+
+    uint64_t bin = 1ULL << index;
+    printf("bin:");
+    printBinary(bin);
+
+
+    return bin;
 }
