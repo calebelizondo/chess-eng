@@ -1,3 +1,5 @@
+import type { Space } from '../Board/types';
+
 class Engine {
   private module: any = null;
 
@@ -46,18 +48,18 @@ class Engine {
     return boardStr;
   }
 
-  public async move(from: number, to: number): Promise<String> {
+  public async move(from: Space, to: Space): Promise<String> {
     await this.loadEngineModule();
-    const m = this.module.cwrap('movePiece', 'number', ['number', 'number']);
+    const m = this.module.cwrap('movePiece', 'number', ['string', 'string']);
     const ptr = m(from, to);
     const boardStr = this.module.UTF8ToString(ptr);
     return boardStr;
   }
 
-  public async getValidMoves(idx: number): Promise<String> {
+  public async getValidMoves(space: Space): Promise<String> {
     await this.loadEngineModule();
-    const getMoves = this.module.cwrap('getValidPieceMoves', 'number', ['number']);
-    const ptr = getMoves(idx);
+    const getMoves = this.module.cwrap('getValidPieceMoves', 'number', ['string']);
+    const ptr = getMoves(space);
     const moveStr = this.module.UTF8ToString(ptr);
     return moveStr;
   }

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { ENGINE } from "../Engine/Engine";
+import type { Space } from "../Board/types";
 
 // export interface GameState {
 //     positions: String, 
@@ -16,7 +17,7 @@ export type GameState =
         |
     {
         positions: String, 
-        activePiece: number, 
+        activePiece: Space, 
         validMoves: String
     };
 
@@ -24,8 +25,8 @@ export type GameState =
 export interface GameStateContextType {
     state: GameState,
     setState: (gs: GameState) => void,
-    setActivePiece: (ap: number | null) => void,
-    moveActivePieceTo: (to: number) => void,
+    setActivePiece: (ap: Space | null) => void,
+    moveActivePieceTo: (to: Space) => void,
 }
 
 
@@ -41,20 +42,20 @@ export const GameStateProvider: React.FC<{children: React.ReactNode}> = ({childr
     });
 
 
-    useEffect(() => {
-        console.log("active piece", gameState.activePiece);
-        console.log("valid moves", gameState.validMoves);
-    }, [gameState])
+    // useEffect(() => {
+    //     console.log("active piece", gameState.activePiece);
+    //     console.log("valid moves", gameState.validMoves);
+    // }, [gameState])
 
 
-    const moveActivePieceTo = (to: number) => {
-        console.log(`move active from ${gameState.activePiece} piece to ${to}`);
+    const moveActivePieceTo = (to: Space) => {
+        // console.log(`move active from ${gameState.activePiece} piece to ${to}`);
         if (gameState === null || gameState.activePiece === null) throw new Error("attempting to move null piece!");
         ENGINE.move(gameState.activePiece, to).then((result: String) => setGameState({positions: result, activePiece: null, validMoves: null})).catch(() =>
             {throw new Error("Error triggered when attempting to move piece")});
     };
 
-    const setActivePiece = async (ap: number | null) => {
+    const setActivePiece = async (ap: Space | null) => {
         if (gameState === null) return;
         if (ap === null) throw new Error("cannot get valid moves for null");
         const validMoves = await ENGINE.getValidMoves(ap);
