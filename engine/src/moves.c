@@ -35,6 +35,7 @@ uint64_t getValidMoves(uint64_t piece_mask, struct BoardState* boardState) {
     } else if ((boardState->black.bishops & piece_mask) || (boardState->white.bishops & piece_mask)) {
         return calc_bishop_moves(piece_mask, friendly_positions, enemy_positions);
     } else if ((boardState->black.rooks & piece_mask) || (boardState->white.rooks & piece_mask)) {
+        printf("rooks triggers");
         return calc_rook_moves(piece_mask, friendly_positions, enemy_positions);
     } else if ((boardState->black.queens & piece_mask) || (boardState->white.queens & piece_mask)) {
         return calc_queen_moves(piece_mask, friendly_positions, enemy_positions);
@@ -151,6 +152,8 @@ uint64_t calc_king_moves(uint64_t position, uint64_t friendly_positions, uint64_
     //remove friendly positions
     candidate_positions &= ~friendly_positions;
 
+
+    //prevent moving from a-h file and vice-versa
     if (file == 'a') {
         candidate_positions &= ~HFILE;
     } else if (file == 'h') {
@@ -161,23 +164,76 @@ uint64_t calc_king_moves(uint64_t position, uint64_t friendly_positions, uint64_
 }
 
 uint64_t calc_bishop_moves(uint64_t position, uint64_t friendly_positions, uint64_t enemy_positions) {
-    uint64_t candidate_positions = 0;
+    uint64_t moves = 0;
+    int square = __builtin_ctzll(position); 
 
+    // direction vectors: NE, NW, SE, SW
+    const int directions[4] = { 9, 7, -7, -9 };
 
-    return candidate_positions;
+    for (int d = 0; d < 4; ++d) {
+        int step = directions[d];
+        int s = square;
+
+        while (1) {
+            s += step;
+
+            if (s < 0 || s >= 64) break;
+
+            // prevent file wraparound
+            int file_prev = (s - step) % 8;
+            int file_now = s % 8;
+            if (abs(file_now - file_prev) != 1) break;
+
+            uint64_t mask = 1ULL << s;
+            if (mask & friendly_positions) break;
+            moves |= mask;
+            if (mask & enemy_positions) break;
+        }
+    }
+
+    return moves;
 }
+
 
 uint64_t calc_rook_moves(uint64_t position, uint64_t friendly_positions, uint64_t enemy_positions) {
-    
-    //get all positions in same row + column
-    uint64_t candidate_positions = 0;
-    //remove current position
-    candidate_positions &= ~position; 
-    //remove friendly positions
-    candidate_positions &= ~friendly_positions;
+    uint64_t moves = 0;
+    int square = __builtin_ctzll(position);
 
-    return candidate_positions;   
+    // up (north)
+    for (int s = square + 8; s < 64; s += 8) {
+        uint64_t mask = 1ULL << s;
+        if (mask & friendly_positions) break;
+        moves |= mask;
+        if (mask & enemy_positions) break;
+    }
+
+    // down (south)
+    for (int s = square - 8; s >= 0; s -= 8) {
+        uint64_t mask = 1ULL << s;
+        if (mask & friendly_positions) break;
+        moves |= mask;
+        if (mask & enemy_positions) break;
+    }
+
+    // right (east)
+    for (int s = square + 1; s % 8 != 0; ++s) {
+        uint64_t mask = 1ULL << s;
+        if (mask & friendly_positions) break;
+        moves |= mask;
+        if (mask & enemy_positions) break;
+    }
+
+    // left (west)
+    for (int s = square - 1; s % 8 != 7 && s >= 0; --s) {
+        uint64_t mask = 1ULL << s;
+        if (mask & friendly_positions) break;
+        moves |= mask;
+        if (mask & enemy_positions) break;
+    }
+
+    return moves;
 }
+
 
 uint64_t calc_queen_moves(uint64_t position, uint64_t friendly_positions, uint64_t enemy_positions) {
     return calc_bishop_moves(position, friendly_positions, enemy_positions) | 
