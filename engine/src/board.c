@@ -68,6 +68,20 @@ void printBoard(struct BoardState* board_state) {
 }
 
 
+char* moveBitmapToString(uint64_t position) {
+
+    static char move_str[65];
+
+    for (int i = 0; i < 64; i++) {
+        if ((position >> i) & 1ULL) {
+            move_str[i] = 'x';
+        } else {
+            move_str[i] = '.';
+        }
+    }
+    return move_str;
+}
+
 Position bitmapToPosition(uint64_t position) {
     Position pos; 
     assert(position != 0 && (position & (position - 1)) == 0);

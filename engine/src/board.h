@@ -30,5 +30,6 @@ extern const struct BoardState STARTING_BOARD_STATE;
 extern Position bitmapToPosition(uint64_t position);
 extern void printBoard(struct BoardState* board_state);
 extern char* boardStateToArray(struct BoardState* board_state);
+extern char* moveBitmapToString(uint64_t position);
 
 #endif

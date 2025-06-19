@@ -1,9 +1,97 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include "moves.h"
+#include <assert.h>
+#include "board.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 uint64_t calc_pawn_moves(uint64_t position, uint64_t friendly_positions, uint64_t enemy_positions, TURN turn);
+uint64_t calc_king_moves(uint64_t position, uint64_t friendly_positions, uint64_t enemy_positions);
+uint64_t calc_knight_moves(uint64_t position, uint64_t friendly_positions, uint64_t enemy_positions);
 
+
+void printBinary(uint64_t num) {
+    for (int i = 63; i >= 0; i--) {
+        if ((num >> i) & 1ULL) {
+            printf("1");
+        } else {
+            printf("0");
+        }
+        if (i % 8 == 0 && i != 0) {
+            printf(" ");
+        }
+    }
+    printf("\n");
+}
+
+uint64_t getValidMoves(int idx, struct BoardState* boardState) {
+    assert(idx < 64);
+
+    const uint64_t black_positions = 
+        boardState->black.king | boardState->black.queens | boardState->black.rooks | boardState->black.knights | boardState->black.bishops | boardState->black.pawns;
+    const uint64_t white_positions = 
+        boardState->white.king | boardState->white.queens | boardState->white.rooks | boardState->white.knights | boardState->white.bishops | boardState->white.pawns;
+    
+    const uint64_t friendly_positions = (boardState->turn == WHITE) ? white_positions : black_positions;
+    const uint64_t enemy_positions = (boardState->turn == WHITE) ? black_positions : white_positions;
+    
+    uint64_t piece_mask = 1ULL << (63 - idx);
+    if ((boardState->white.pawns & piece_mask) || (boardState->black.pawns & piece_mask)) {
+        return calc_pawn_moves(piece_mask, friendly_positions, enemy_positions, boardState->turn);
+    } else if ((boardState->black.knights & piece_mask) || (boardState->white.knights & piece_mask)) {
+        return calc_knight_moves(piece_mask, friendly_positions, enemy_positions);
+    } else if ((boardState->black.king & piece_mask) || (boardState->white.king & piece_mask)) {
+        return calc_king_moves(piece_mask, friendly_positions, enemy_positions);
+    }
+
+    //placeholder
+    else return 0;
+}
+
+
+void move(int from, int to, struct BoardState* boardState) {
+    assert(from < 64);
+    assert(to < 64);
+    printf("from");
+    uint64_t from_mask = 1ULL << (63 - from) ;
+    uint64_t to_mask = 1ULL << (63 - to);
+
+    printBinary(from_mask);
+    printf("to");
+    printBinary(to_mask);
+    
+    
+    if ((boardState->black.king & from_mask) != 0) boardState->black.king |= to_mask;
+    boardState->black.king &= ~from_mask;
+    if ((boardState->black.queens & from_mask) != 0) boardState->black.queens |= to_mask;
+    boardState->black.queens &= ~from_mask;
+    if ((boardState->black.rooks & from_mask) != 0) boardState->black.rooks |= to_mask;
+    boardState->black.rooks &= ~from_mask;
+    if ((boardState->black.bishops & from_mask) != 0) boardState->black.bishops |= to_mask;
+    boardState->black.bishops &= ~from_mask;
+    if ((boardState->black.knights & from_mask) != 0) boardState->black.knights |= to_mask;
+    boardState->black.knights &= ~from_mask;
+    if ((boardState->black.pawns & from_mask) != 0) boardState->black.pawns |= to_mask;
+    boardState->black.pawns &= ~from_mask;
+
+    if ((boardState->white.king & from_mask) != 0) boardState->white.king |= to_mask;
+    boardState->white.king &= ~from_mask;
+    if ((boardState->white.queens & from_mask) != 0) boardState->white.queens |= to_mask;
+    boardState->white.queens &= ~from_mask;
+    if ((boardState->white.rooks & from_mask) != 0) boardState->white.rooks |= to_mask;
+    boardState->white.rooks &= ~from_mask;
+    if ((boardState->white.bishops & from_mask) != 0) boardState->white.bishops |= to_mask;
+    boardState->white.bishops &= ~from_mask;
+    if ((boardState->white.knights & from_mask) != 0) boardState->white.knights |= to_mask;
+    boardState->white.knights &= ~from_mask;
+    if ((boardState->white.pawns & from_mask) != 0) boardState->white.pawns |= to_mask;
+    boardState->white.pawns &= ~from_mask;
+
+    if (boardState->turn == WHITE) boardState->turn = BLACK;
+    else boardState->turn = WHITE;
+
+}
 
 struct BoardState** calcValidMoves(uint64_t position, struct BoardState* boardState) {
     //set up function args

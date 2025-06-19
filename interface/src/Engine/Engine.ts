@@ -53,6 +53,14 @@ class Engine {
     const boardStr = this.module.UTF8ToString(ptr);
     return boardStr;
   }
+
+  public async getValidMoves(idx: number): Promise<String> {
+    await this.loadEngineModule();
+    const getMoves = this.module.cwrap('getValidPieceMoves', 'number', ['number']);
+    const ptr = getMoves(idx);
+    const moveStr = this.module.UTF8ToString(ptr);
+    return moveStr;
+  }
 }
 
 export const ENGINE = new Engine();

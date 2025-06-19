@@ -1,10 +1,25 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { ENGINE } from "../Engine/Engine";
 
-export interface GameState {
-    positions: String, 
-    activePiece: number | null
-}
+// export interface GameState {
+//     positions: String, 
+//     activePiece: number | null,
+//     validMoves: String | null
+// }
+
+export type GameState = 
+    {
+        positions: String,
+        activePiece: null,
+        validMoves: null    
+    } 
+        |
+    {
+        positions: String, 
+        activePiece: number, 
+        validMoves: String
+    };
+
 
 export interface GameStateContextType {
     state: GameState,
@@ -21,27 +36,33 @@ export const GameStateProvider: React.FC<{children: React.ReactNode}> = ({childr
 
     const [gameState, setGameState] = useState<GameState>({
         positions: "",
-        activePiece: null
+        activePiece: null,
+        validMoves: null,
     });
 
 
-    useEffect(() => {console.log("active piece", gameState.activePiece)}, [gameState])
+    useEffect(() => {
+        console.log("active piece", gameState.activePiece);
+        console.log("valid moves", gameState.validMoves);
+    }, [gameState])
 
 
     const moveActivePieceTo = (to: number) => {
         console.log(`move active from ${gameState.activePiece} piece to ${to}`);
         if (gameState === null || gameState.activePiece === null) throw new Error("attempting to move null piece!");
-        ENGINE.move(gameState.activePiece, to).then((result: String) => setGameState({positions: result, activePiece: null})).catch(() =>
+        ENGINE.move(gameState.activePiece, to).then((result: String) => setGameState({positions: result, activePiece: null, validMoves: null})).catch(() =>
             {throw new Error("Error triggered when attempting to move piece")});
     };
 
-    const setActivePiece = (ap: number | null) => {
+    const setActivePiece = async (ap: number | null) => {
         if (gameState === null) return;
-        setGameState({...gameState, activePiece: ap});
+        if (ap === null) throw new Error("cannot get valid moves for null");
+        const validMoves = await ENGINE.getValidMoves(ap);
+        setGameState({...gameState, activePiece: ap, validMoves});
     };
 
     useEffect(() => {
-        ENGINE.getBoardState().then((result: String) => setGameState({positions: result, activePiece: null})).catch(() => 
+        ENGINE.getBoardState().then((result: String) => setGameState({positions: result, activePiece: null, validMoves: null})).catch(() => 
             {throw new Error("Could not get game state from Engine!")});
     }, []);
     
