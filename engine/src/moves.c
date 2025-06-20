@@ -8,6 +8,18 @@
 #include "utils.h"
 #include <string.h>
 
+/*
+    TODO: 
+
+    - Kings need to be able to castle
+        - needs to make sure no pieces are in the way
+        - cannot castle out of check
+        - cannot castle if either rook or king has previously moved
+    - Pawns need to be able to promote
+    - Pawns need to be able to en passante
+
+*/
+
 
 Moves calc_pawn_moves(uint64_t position, BoardState* boardState);
 Moves calc_king_moves(uint64_t position, BoardState* boardState);
@@ -42,6 +54,27 @@ Moves getPsuedoLegalMoves(uint64_t piece_mask, BoardState* boardState) {
     return moves;
 }
 
+bool isInCheck(TURN side, BoardState* boardState) {
+    const uint64_t enemy_positions = (side == WHITE) ? boardState->black_positions : boardState->white_positions; 
+    const size_t enemy_piece_total = __builtin_popcountll(enemy_positions);
+
+    for (size_t enemy_piece = 0; enemy_piece < enemy_piece_total; enemy_piece++) {
+        const uint64_t enemy_piece_position = extract_nth_set_bit(enemy_positions, enemy_piece);
+        const Moves psuedoLegalResponses = getPsuedoLegalMoves(enemy_piece_position, boardState);
+
+        for (size_t response = 0; response < psuedoLegalResponses.count; response++) {
+            if (psuedoLegalResponses.boards[response].white.king == 0 || psuedoLegalResponses.boards[response].black.king == 0) {
+                free(psuedoLegalResponses.boards);
+                return true;
+            }
+        }
+
+        free(psuedoLegalResponses.boards);
+    }
+
+    return false;
+}
+
 //Assumption: If a move allows a response that could capture the King, it is illegal: 
 Moves getValidMoves(uint64_t piece_mask, BoardState* boardState) {
     Moves pseudoLegalMoves = getPsuedoLegalMoves(piece_mask, boardState);
@@ -52,26 +85,7 @@ Moves getValidMoves(uint64_t piece_mask, BoardState* boardState) {
 
     for (size_t possible_move = 0; possible_move < pseudoLegalMoves.count; possible_move++) {
 
-        bool move_is_legal = true;
-        assert(pseudoLegalMoves.boards[possible_move].turn != boardState->turn);
-        const uint64_t enemy_positions = (boardState->turn == WHITE) ? pseudoLegalMoves.boards[possible_move].black_positions : pseudoLegalMoves.boards[possible_move].white_positions; 
-        const size_t enemy_piece_total = __builtin_popcountll(enemy_positions);
-
-
-        for (size_t enemy_piece = 0; enemy_piece < enemy_piece_total; enemy_piece++) {
-            const uint64_t enemy_piece_position = extract_nth_set_bit(enemy_positions, enemy_piece);
-            const Moves psuedoLegalResponses = getPsuedoLegalMoves(enemy_piece_position, &pseudoLegalMoves.boards[possible_move]);
-
-            for (size_t response = 0; response < psuedoLegalResponses.count; response++) {
-                if (psuedoLegalResponses.boards[response].white.king == 0 || psuedoLegalResponses.boards[response].black.king == 0) {
-                    move_is_legal = false;
-                    break;
-                }
-            }
-
-            free(psuedoLegalResponses.boards);
-            if (!move_is_legal) break;
-        }
+        bool move_is_legal = !isInCheck(boardState->turn, &pseudoLegalMoves.boards[possible_move]);
 
         if (move_is_legal) {
             memcpy(&legalMoves.boards[legalMoves.count], &pseudoLegalMoves.boards[possible_move], sizeof(BoardState));
@@ -80,6 +94,7 @@ Moves getValidMoves(uint64_t piece_mask, BoardState* boardState) {
         }
     }
 
+    free(pseudoLegalMoves.boards);
     return legalMoves;
 }
 
