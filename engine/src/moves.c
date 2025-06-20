@@ -35,7 +35,6 @@ uint64_t getValidMoves(uint64_t piece_mask, struct BoardState* boardState) {
     } else if ((boardState->black.bishops & piece_mask) || (boardState->white.bishops & piece_mask)) {
         return calc_bishop_moves(piece_mask, friendly_positions, enemy_positions);
     } else if ((boardState->black.rooks & piece_mask) || (boardState->white.rooks & piece_mask)) {
-        printf("rooks triggers");
         return calc_rook_moves(piece_mask, friendly_positions, enemy_positions);
     } else if ((boardState->black.queens & piece_mask) || (boardState->white.queens & piece_mask)) {
         return calc_queen_moves(piece_mask, friendly_positions, enemy_positions);
@@ -136,6 +135,8 @@ struct BoardState** calcValidMoves(uint64_t position, struct BoardState* boardSt
 
 }
 
+
+//TODO: castle
 uint64_t calc_king_moves(uint64_t position, uint64_t friendly_positions, uint64_t enemy_positions) {
     
     uint64_t candidate_positions = 0;
@@ -257,13 +258,13 @@ uint64_t calc_knight_moves(uint64_t position, uint64_t friendly_positions, uint6
 
     if (file < 'g') {
         candidate_positions |= position << 6;
-        candidate_positions |= position >> 17;
+        candidate_positions |= position >> 10;
 
     }
 
     if (file < 'h') {
         candidate_positions |= position << 15;
-        candidate_positions |= position >> 10;
+        candidate_positions |= position >> 17;
     }
 
     candidate_positions &= ~friendly_positions;

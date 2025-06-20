@@ -3,6 +3,7 @@
 #include "board.h"
 #include "moves.h"
 #include <emscripten.h>
+#include <stdbool.h>
 
 struct BoardState* current_board_state = NULL;
 
@@ -36,7 +37,7 @@ char* getCurrentBoardState() {
 }
 
 EMSCRIPTEN_KEEPALIVE
-char* movePiece(char* from, char* to) {
+char* movePiece(char* from, char* to, bool isCastle, bool isEnpassant, bool isPromotion, char* promoteTo) {
     move(stringPositionToBitmap(from), stringPositionToBitmap(to), current_board_state);
     return getCurrentBoardState();
 }
@@ -46,6 +47,5 @@ char* getValidPieceMoves(char* piece) {
     //temp, black doesnt move yet. 
     current_board_state->turn = WHITE;
     uint64_t moveBitmap = getValidMoves(stringPositionToBitmap(piece), current_board_state);
-    printBinary(moveBitmap);
     return moveBitmapToString(moveBitmap);
 }

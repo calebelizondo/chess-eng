@@ -1,14 +1,10 @@
 import type { Space } from '../Board/types';
 
-class Engine {
-  private module: any = null;
-
-  private async loadEngineModule(): Promise<void> {
-    if (this.module != null) return;
+async function loadEngineModule(): Promise<any> {
 
     const { default: url } = await import('/build/main.js?url');
 
-    this.module = await new Promise<any>((resolve, reject) => {
+    const module = await new Promise<any>((resolve, reject) => {
       const script = document.createElement('script');
       script.src = url;
 
@@ -21,48 +17,63 @@ class Engine {
       script.onerror = reject;
       document.body.appendChild(script);
     });
-  }
 
-  public async printBoard(): Promise<void> {
-    await this.loadEngineModule();
+  return module;
+}
 
-    const print = this.module.cwrap('printCurrentBoardState', null, []);
-    print();
-  }
 
-  public async resetGame(): Promise<String> {
-    await this.loadEngineModule();
+class Engine {
+  public printBoard: () => void;
+  public resetGame: () => String;
+  public getBoardState: () => String;
+  public move: (from: Space, to: Space) => String; 
+  public getValidMoves: (space: Space) => String;
 
-    const reset = this.module.cwrap('resetGame', 'number', []);
-    const ptr = reset();
-    const boardStr = this.module.UTF8ToString(ptr);
-    return boardStr;
-  }
+  constructor(module: any) {
+    const print = module.cwrap('printCurrentBoardState', null, []);
+    const resetGame = module.cwrap('resetGame', 'number', []);
+    const getBoardStatePtr = module.cwrap('getCurrentBoardState', 'number', []);
+    const getMovePtr = module.cwrap('movePiece', 'number', ['string', 'string', 'boolean', 'boolean', 'boolean', 'string']);
+    const getMoves = module.cwrap('getValidPieceMoves', 'number', ['string']);
 
-  public async getBoardState(): Promise<String> {
-    await this.loadEngineModule();
+    this.printBoard = () => {
+      print();
+    }
 
-    const getBoardStatePtr = this.module.cwrap('getCurrentBoardState', 'number', []);
-    const ptr = getBoardStatePtr();
-    const boardStr = this.module.UTF8ToString(ptr);
-    return boardStr;
-  }
+    this.resetGame = () => {
+      const ptr = resetGame();
+      const boardStr = module.UTF8ToString(ptr);
+      return boardStr;
+    }
 
-  public async move(from: Space, to: Space): Promise<String> {
-    await this.loadEngineModule();
-    const m = this.module.cwrap('movePiece', 'number', ['string', 'string']);
-    const ptr = m(from, to);
-    const boardStr = this.module.UTF8ToString(ptr);
-    return boardStr;
-  }
+    this.getBoardState = () => {
+      const ptr = getBoardStatePtr();
+      const boardStr = module.UTF8ToString(ptr);
+      return boardStr;
+    }
 
-  public async getValidMoves(space: Space): Promise<String> {
-    await this.loadEngineModule();
-    const getMoves = this.module.cwrap('getValidPieceMoves', 'number', ['string']);
-    const ptr = getMoves(space);
-    const moveStr = this.module.UTF8ToString(ptr);
-    return moveStr;
+    this.move = (from: Space, to: Space) => {
+
+      //args are: 
+      //1: piece to move
+      //2: where to move
+      //3: castle?
+      //4: enpassant?
+      //5: pawn promotion?
+      //6: promote to what?
+
+      const ptr = getMovePtr(from, to, false, false, false, '');
+      const boardStr = module.UTF8ToString(ptr);
+      return boardStr;
+    }
+
+    this.getValidMoves = (space: Space) => {
+      const ptr = getMoves(space);
+      const moveStr = module.UTF8ToString(ptr);
+      return moveStr;
+    }
   }
 }
 
-export const ENGINE = new Engine();
+const module = await loadEngineModule();
+export const ENGINE = new Engine(module);

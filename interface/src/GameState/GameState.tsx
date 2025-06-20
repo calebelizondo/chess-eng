@@ -42,17 +42,10 @@ export const GameStateProvider: React.FC<{children: React.ReactNode}> = ({childr
     });
 
 
-    // useEffect(() => {
-    //     console.log("active piece", gameState.activePiece);
-    //     console.log("valid moves", gameState.validMoves);
-    // }, [gameState])
-
-
     const moveActivePieceTo = (to: Space) => {
         // console.log(`move active from ${gameState.activePiece} piece to ${to}`);
         if (gameState === null || gameState.activePiece === null) throw new Error("attempting to move null piece!");
-        ENGINE.move(gameState.activePiece, to).then((result: String) => setGameState({positions: result, activePiece: null, validMoves: null})).catch(() =>
-            {throw new Error("Error triggered when attempting to move piece")});
+        setGameState({positions: ENGINE.move(gameState.activePiece, to), activePiece: null, validMoves: null});
     };
 
     const setActivePiece = async (ap: Space | null) => {
@@ -63,8 +56,7 @@ export const GameStateProvider: React.FC<{children: React.ReactNode}> = ({childr
     };
 
     useEffect(() => {
-        ENGINE.getBoardState().then((result: String) => setGameState({positions: result, activePiece: null, validMoves: null})).catch(() => 
-            {throw new Error("Could not get game state from Engine!")});
+        setGameState({positions: ENGINE.getBoardState(), activePiece: null, validMoves: null});
     }, []);
     
 
