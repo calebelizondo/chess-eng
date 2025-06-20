@@ -46,10 +46,14 @@ char* movePiece(char* from, char* to, bool isCastle, bool isEnpassant, bool isPr
 
 EMSCRIPTEN_KEEPALIVE
 char* getValidPieceMoves(char* piece) {
+
+    printf("%d\n", 1);
     //temp, black doesnt move yet. 
     current_board_state->turn = WHITE;
     updatePositionBitmap(current_board_state);
     Moves moves = getValidMoves(stringPositionToBitmap(piece), current_board_state);
+
+    //temp,for now black doesn't move
     free(moves.boards);
     return moveBitmapToString(moves.move_bitmap);
 }

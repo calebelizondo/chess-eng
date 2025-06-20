@@ -49,8 +49,8 @@ export const GameStateProvider: React.FC<{children: React.ReactNode}> = ({childr
     };
 
     const setActivePiece = async (ap: Space | null) => {
-        if (gameState === null) return;
-        if (ap === null) throw new Error("cannot get valid moves for null");
+        if (gameState === null || ap === null) return;
+        //if (ap === null) throw new Error("cannot get valid moves for null");
         const validMoves = await ENGINE.getValidMoves(ap);
         setGameState({...gameState, activePiece: ap, validMoves});
     };

@@ -16,64 +16,133 @@ Moves calc_bishop_moves(uint64_t position, BoardState* boardState);
 Moves calc_rook_moves(uint64_t position, BoardState* boardState);
 Moves calc_queen_moves(uint64_t position, BoardState* boardState);
 
-
-Moves getValidMoves(uint64_t piece_mask, BoardState* boardState) {
+//Assumes move does not put own king in check
+Moves getPsuedoLegalMoves(uint64_t piece_mask, BoardState* boardState) {
 
     const uint64_t friendly_positions = (boardState->turn == WHITE) ? boardState->white_positions : boardState->black_positions;
     const uint64_t enemy_positions = (boardState->turn == WHITE) ? boardState->black_positions : boardState->white_positions;
-    
-    if ((boardState->white.pawns & piece_mask) || (boardState->black.pawns & piece_mask)) {
-        return calc_pawn_moves(piece_mask, boardState);
-    } else if ((boardState->black.knights & piece_mask) || (boardState->white.knights & piece_mask)) {
-        return calc_knight_moves(piece_mask, boardState);
-    } else if ((boardState->black.king & piece_mask) || (boardState->white.king & piece_mask)) {
-        return calc_king_moves(piece_mask, boardState);
-    } else if ((boardState->black.bishops & piece_mask) || (boardState->white.bishops & piece_mask)) {
-        return calc_bishop_moves(piece_mask, boardState);
-    } else if ((boardState->black.rooks & piece_mask) || (boardState->white.rooks & piece_mask)) {
-        return calc_rook_moves(piece_mask, boardState);
-    } else if ((boardState->black.queens & piece_mask) || (boardState->white.queens & piece_mask)) {
-        return calc_queen_moves(piece_mask, boardState);
-    }
-    
 
-    assert(false);
+    Moves moves;
+    
+    //get all presumably valid moves
+    if ((boardState->white.pawns & piece_mask) || (boardState->black.pawns & piece_mask)) {
+        moves = calc_pawn_moves(piece_mask, boardState);
+    } else if ((boardState->black.knights & piece_mask) || (boardState->white.knights & piece_mask)) {
+        moves = calc_knight_moves(piece_mask, boardState);
+    } else if ((boardState->black.king & piece_mask) || (boardState->white.king & piece_mask)) {
+        moves = calc_king_moves(piece_mask, boardState);
+    } else if ((boardState->black.bishops & piece_mask) || (boardState->white.bishops & piece_mask)) {
+        moves = calc_bishop_moves(piece_mask, boardState);
+    } else if ((boardState->black.rooks & piece_mask) || (boardState->white.rooks & piece_mask)) {
+        moves = calc_rook_moves(piece_mask, boardState);
+    } else if ((boardState->black.queens & piece_mask) || (boardState->white.queens & piece_mask)) {
+        moves = calc_queen_moves(piece_mask, boardState);
+    }    
+
+    return moves;
 }
 
+//Assumption: If a move allows a response that could capture the King, it is illegal: 
+Moves getValidMoves(uint64_t piece_mask, BoardState* boardState) {
+    Moves pseudoLegalMoves = getPsuedoLegalMoves(piece_mask, boardState);
+    Moves legalMoves;
+    legalMoves.boards = malloc(sizeof(BoardState) * pseudoLegalMoves.count);
+    legalMoves.count = 0;
+    legalMoves.move_bitmap = 0;
 
+    for (size_t possible_move = 0; possible_move < pseudoLegalMoves.count; possible_move++) {
+
+        bool move_is_legal = true;
+        assert(pseudoLegalMoves.boards[possible_move].turn != boardState->turn);
+        const uint64_t enemy_positions = (boardState->turn == WHITE) ? pseudoLegalMoves.boards[possible_move].black_positions : pseudoLegalMoves.boards[possible_move].white_positions; 
+        const size_t enemy_piece_total = __builtin_popcountll(enemy_positions);
+
+
+        for (size_t enemy_piece = 0; enemy_piece < enemy_piece_total; enemy_piece++) {
+            const uint64_t enemy_piece_position = extract_nth_set_bit(enemy_positions, enemy_piece);
+            const Moves psuedoLegalResponses = getPsuedoLegalMoves(enemy_piece_position, &pseudoLegalMoves.boards[possible_move]);
+
+            for (size_t response = 0; response < psuedoLegalResponses.count; response++) {
+                if (psuedoLegalResponses.boards[response].white.king == 0 || psuedoLegalResponses.boards[response].black.king == 0) {
+                    move_is_legal = false;
+                    break;
+                }
+            }
+
+            free(psuedoLegalResponses.boards);
+            if (!move_is_legal) break;
+        }
+
+        if (move_is_legal) {
+            memcpy(&legalMoves.boards[legalMoves.count], &pseudoLegalMoves.boards[possible_move], sizeof(BoardState));
+            legalMoves.count++;
+            legalMoves.move_bitmap |= pseudoLegalMoves.boards[possible_move].last_move;
+        }
+    }
+
+    return legalMoves;
+}
+
+//used for simple moves, move from one space to another
 void move(uint64_t from, uint64_t to, BoardState* boardState) {
 
     uint64_t from_mask = from;
     uint64_t to_mask = to;
     
-    if ((boardState->black.king & from_mask) != 0) boardState->black.king |= to_mask;
-    boardState->black.king &= ~from_mask;
-    if ((boardState->black.queens & from_mask) != 0) boardState->black.queens |= to_mask;
-    boardState->black.queens &= ~from_mask;
-    if ((boardState->black.rooks & from_mask) != 0) boardState->black.rooks |= to_mask;
-    boardState->black.rooks &= ~from_mask;
-    if ((boardState->black.bishops & from_mask) != 0) boardState->black.bishops |= to_mask;
-    boardState->black.bishops &= ~from_mask;
-    if ((boardState->black.knights & from_mask) != 0) boardState->black.knights |= to_mask;
-    boardState->black.knights &= ~from_mask;
-    if ((boardState->black.pawns & from_mask) != 0) boardState->black.pawns |= to_mask;
-    boardState->black.pawns &= ~from_mask;
+    if (boardState->turn == WHITE) {
 
-    if ((boardState->white.king & from_mask) != 0) boardState->white.king |= to_mask;
-    boardState->white.king &= ~from_mask;
-    if ((boardState->white.queens & from_mask) != 0) boardState->white.queens |= to_mask;
-    boardState->white.queens &= ~from_mask;
-    if ((boardState->white.rooks & from_mask) != 0) boardState->white.rooks |= to_mask;
-    boardState->white.rooks &= ~from_mask;
-    if ((boardState->white.bishops & from_mask) != 0) boardState->white.bishops |= to_mask;
-    boardState->white.bishops &= ~from_mask;
-    if ((boardState->white.knights & from_mask) != 0) boardState->white.knights |= to_mask;
-    boardState->white.knights &= ~from_mask;
-    if ((boardState->white.pawns & from_mask) != 0) boardState->white.pawns |= to_mask;
-    boardState->white.pawns &= ~from_mask;
+        //move friendly piece
+        if ((boardState->white.king & from_mask) != 0) boardState->white.king |= to_mask;
+        if ((boardState->white.queens & from_mask) != 0) boardState->white.queens |= to_mask;
+        if ((boardState->white.rooks & from_mask) != 0) boardState->white.rooks |= to_mask;
+        if ((boardState->white.bishops & from_mask) != 0) boardState->white.bishops |= to_mask;
+        if ((boardState->white.knights & from_mask) != 0) boardState->white.knights |= to_mask;
+        if ((boardState->white.pawns & from_mask) != 0) boardState->white.pawns |= to_mask;
 
+        boardState->white.king &= ~from_mask;
+        boardState->white.queens &= ~from_mask;
+        boardState->white.rooks &= ~from_mask;
+        boardState->white.bishops &= ~from_mask;
+        boardState->white.knights &= ~from_mask;
+        boardState->white.pawns &= ~from_mask;
+
+
+        boardState->black.king &= ~to_mask;
+        boardState->black.queens &= ~to_mask;
+        boardState->black.rooks &= ~to_mask;
+        boardState->black.bishops &= ~to_mask;
+        boardState->black.knights &= ~to_mask;
+        boardState->black.pawns &= ~to_mask;
+    } else {
+
+        if ((boardState->black.king & from_mask) != 0) boardState->black.king |= to_mask;
+        if ((boardState->black.queens & from_mask) != 0) boardState->black.queens |= to_mask;
+        if ((boardState->black.rooks & from_mask) != 0) boardState->black.rooks |= to_mask;
+        if ((boardState->black.bishops & from_mask) != 0) boardState->black.bishops |= to_mask;
+        if ((boardState->black.knights & from_mask) != 0) boardState->black.knights |= to_mask;
+        if ((boardState->black.pawns & from_mask) != 0) boardState->black.pawns |= to_mask;
+
+        boardState->black.king &= ~from_mask;
+        boardState->black.queens &= ~from_mask;
+        boardState->black.rooks &= ~from_mask;
+        boardState->black.bishops &= ~from_mask;
+        boardState->black.knights &= ~from_mask;
+        boardState->black.pawns &= ~from_mask;
+
+
+        boardState->white.king &= ~to_mask;
+        boardState->white.queens &= ~to_mask;
+        boardState->white.rooks &= ~to_mask;
+        boardState->white.bishops &= ~to_mask;
+        boardState->white.knights &= ~to_mask;
+        boardState->white.pawns &= ~to_mask;
+
+    }
     if (boardState->turn == WHITE) boardState->turn = BLACK;
     else boardState->turn = WHITE;
+
+    boardState->last_move = to;
+    updatePositionBitmap(boardState);
 
 }
 
@@ -119,31 +188,7 @@ Moves calc_king_moves(uint64_t position, BoardState* boardState) {
     for (size_t i = 0; i < moves.count; i++) {
         uint64_t new_position = extract_nth_set_bit(moves.move_bitmap, i);
         newBoardStates[i] = *boardState;
-    
-        //swap turns
-        newBoardStates[i].turn = (boardState->turn == WHITE) ? BLACK : WHITE;
-        //move king to new position + remove new position from opponent's positions
-        if (boardState->turn == WHITE) {
-            newBoardStates[i].white.king &= ~new_position;
-            newBoardStates[i].white.king |= new_position;
-
-            newBoardStates[i].black.queens &= ~new_position;
-            newBoardStates[i].black.king &= ~new_position;
-            newBoardStates[i].black.rooks &= ~new_position;
-            newBoardStates[i].black.bishops &= ~new_position;
-            newBoardStates[i].black.knights &= ~new_position;
-            newBoardStates[i].black.pawns &= ~new_position;
-        } else {
-            newBoardStates[i].black.king &= ~new_position;
-            newBoardStates[i].black.king |= new_position;
-
-            newBoardStates[i].white.queens &= ~new_position;
-            newBoardStates[i].white.king &= ~new_position;
-            newBoardStates[i].white.rooks &= ~new_position;
-            newBoardStates[i].white.bishops &= ~new_position;
-            newBoardStates[i].white.knights &= ~new_position;
-            newBoardStates[i].white.pawns &= ~new_position;
-        }
+        move(position, new_position, &newBoardStates[i]);
     }
 
     moves.boards = newBoardStates;
@@ -190,31 +235,7 @@ Moves calc_bishop_moves(uint64_t position, BoardState* boardState) {
     for (size_t i = 0; i < moves.count; i++) {
         uint64_t new_position = extract_nth_set_bit(moves.move_bitmap, i);
         newBoardStates[i] = *boardState;
-    
-        //swap turns
-        newBoardStates[i].turn = (boardState->turn == WHITE) ? BLACK : WHITE;
-        //move rook to new position + remove new position from opponent's positions
-        if (boardState->turn == WHITE) {
-            newBoardStates[i].white.bishops &= ~new_position;
-            newBoardStates[i].white.bishops |= new_position;
-
-            newBoardStates[i].black.queens &= ~new_position;
-            newBoardStates[i].black.king &= ~new_position;
-            newBoardStates[i].black.rooks &= ~new_position;
-            newBoardStates[i].black.bishops &= ~new_position;
-            newBoardStates[i].black.knights &= ~new_position;
-            newBoardStates[i].black.pawns &= ~new_position;
-        } else {
-            newBoardStates[i].black.bishops &= ~new_position;
-            newBoardStates[i].black.bishops |= new_position;
-
-            newBoardStates[i].white.queens &= ~new_position;
-            newBoardStates[i].white.king &= ~new_position;
-            newBoardStates[i].white.rooks &= ~new_position;
-            newBoardStates[i].white.bishops &= ~new_position;
-            newBoardStates[i].white.knights &= ~new_position;
-            newBoardStates[i].white.pawns &= ~new_position;
-        }
+        move(position, new_position, &newBoardStates[i]);
     }
 
     moves.boards = newBoardStates;
@@ -270,31 +291,7 @@ Moves calc_rook_moves(uint64_t position, BoardState* boardState) {
     for (size_t i = 0; i < moves.count; i++) {
         uint64_t new_position = extract_nth_set_bit(moves.move_bitmap, i);
         newBoardStates[i] = *boardState;
-    
-        //swap turns
-        newBoardStates[i].turn = (boardState->turn == WHITE) ? BLACK : WHITE;
-        //move rook to new position + remove new position from opponent's positions
-        if (boardState->turn == WHITE) {
-            newBoardStates[i].white.rooks &= ~new_position;
-            newBoardStates[i].white.rooks |= new_position;
-
-            newBoardStates[i].black.queens &= ~new_position;
-            newBoardStates[i].black.king &= ~new_position;
-            newBoardStates[i].black.rooks &= ~new_position;
-            newBoardStates[i].black.bishops &= ~new_position;
-            newBoardStates[i].black.knights &= ~new_position;
-            newBoardStates[i].black.pawns &= ~new_position;
-        } else {
-            newBoardStates[i].black.rooks &= ~new_position;
-            newBoardStates[i].black.rooks |= new_position;
-
-            newBoardStates[i].white.queens &= ~new_position;
-            newBoardStates[i].white.king &= ~new_position;
-            newBoardStates[i].white.rooks &= ~new_position;
-            newBoardStates[i].white.bishops &= ~new_position;
-            newBoardStates[i].white.knights &= ~new_position;
-            newBoardStates[i].white.pawns &= ~new_position;
-        }
+        move(position, new_position, &newBoardStates[i]);
     }
 
     moves.boards = newBoardStates;
@@ -315,38 +312,16 @@ Moves calc_queen_moves(uint64_t position, BoardState* boardState) {
     queen_moves.move_bitmap = bish_moves.move_bitmap | rook_moves.move_bitmap;
     queen_moves.boards = malloc(sizeof(BoardState) * queen_moves.count);
 
+    memcpy(queen_moves.boards, bish_moves.boards, sizeof(BoardState) * bish_moves.count);
+    memcpy(queen_moves.boards + bish_moves.count, rook_moves.boards, sizeof(BoardState) * rook_moves.count);
+
     free(bish_moves.boards);
     free(rook_moves.boards);
 
     //create board states
     for (size_t i = 0; i < queen_moves.count; i++) {
         uint64_t new_position = extract_nth_set_bit(queen_moves.move_bitmap, i);
-        queen_moves.boards[i] = *boardState;
-    
-        //swap turns
-        queen_moves.boards[i].turn = (boardState->turn == WHITE) ? BLACK : WHITE;
-        //move rook to new position + remove new position from opponent's positions
-        if (boardState->turn == WHITE) {
-            queen_moves.boards[i].white.queens &= ~new_position;
-            queen_moves.boards[i].white.queens |= new_position;
-
-            queen_moves.boards[i].black.queens &= ~new_position;
-            queen_moves.boards[i].black.king &= ~new_position;
-            queen_moves.boards[i].black.rooks &= ~new_position;
-            queen_moves.boards[i].black.bishops &= ~new_position;
-            queen_moves.boards[i].black.knights &= ~new_position;
-            queen_moves.boards[i].black.pawns &= ~new_position;
-        } else {
-            queen_moves.boards[i].black.queens &= ~new_position;
-            queen_moves.boards[i].black.queens |= new_position;
-
-            queen_moves.boards[i].white.queens &= ~new_position;
-            queen_moves.boards[i].white.king &= ~new_position;
-            queen_moves.boards[i].white.rooks &= ~new_position;
-            queen_moves.boards[i].white.bishops &= ~new_position;
-            queen_moves.boards[i].white.knights &= ~new_position;
-            queen_moves.boards[i].white.pawns &= ~new_position;
-        }
+        move(position, new_position, &queen_moves.boards[i]);
     }
 
 
@@ -396,31 +371,7 @@ Moves calc_knight_moves(uint64_t position, BoardState* boardState) {
     for (size_t i = 0; i < count; i++) {
         uint64_t new_position = extract_nth_set_bit(moves.move_bitmap, i);
         newBoardStates[i] = *boardState;
-    
-        //swap turns
-        newBoardStates[i].turn = (boardState->turn == WHITE) ? BLACK : WHITE;
-        //move knight to new position + remove new position from opponent's positions
-        if (boardState->turn == WHITE) {
-            newBoardStates[i].white.knights &= ~new_position;
-            newBoardStates[i].white.knights |= new_position;
-
-            newBoardStates[i].black.queens &= ~new_position;
-            newBoardStates[i].black.king &= ~new_position;
-            newBoardStates[i].black.rooks &= ~new_position;
-            newBoardStates[i].black.bishops &= ~new_position;
-            newBoardStates[i].black.knights &= ~new_position;
-            newBoardStates[i].black.pawns &= ~new_position;
-        } else {
-            newBoardStates[i].black.knights &= ~new_position;
-            newBoardStates[i].black.knights |= new_position;
-
-            newBoardStates[i].white.queens &= ~new_position;
-            newBoardStates[i].white.king &= ~new_position;
-            newBoardStates[i].white.rooks &= ~new_position;
-            newBoardStates[i].white.bishops &= ~new_position;
-            newBoardStates[i].white.knights &= ~new_position;
-            newBoardStates[i].white.pawns &= ~new_position;
-        }
+        move(position, new_position, &newBoardStates[i]);
     }
 
     moves.boards = newBoardStates;
@@ -479,31 +430,7 @@ Moves calc_pawn_moves(uint64_t position, BoardState* boardState) {
     for (size_t i = 0; i < count; i++) {
         uint64_t new_position = extract_nth_set_bit(moves.move_bitmap, i);
         newBoardStates[i] = *boardState;
-    
-        //swap turns
-        newBoardStates[i].turn = (boardState->turn == WHITE) ? BLACK : WHITE;
-        //move knight to new position + remove new position from opponent's positions
-        if (boardState->turn == WHITE) {
-            newBoardStates[i].white.pawns &= ~new_position;
-            newBoardStates[i].white.pawns |= new_position;
-
-            newBoardStates[i].black.queens &= ~new_position;
-            newBoardStates[i].black.king &= ~new_position;
-            newBoardStates[i].black.rooks &= ~new_position;
-            newBoardStates[i].black.bishops &= ~new_position;
-            newBoardStates[i].black.knights &= ~new_position;
-            newBoardStates[i].black.pawns &= ~new_position;
-        } else {
-            newBoardStates[i].black.pawns &= ~new_position;
-            newBoardStates[i].black.pawns |= new_position;
-
-            newBoardStates[i].white.queens &= ~new_position;
-            newBoardStates[i].white.king &= ~new_position;
-            newBoardStates[i].white.rooks &= ~new_position;
-            newBoardStates[i].white.bishops &= ~new_position;
-            newBoardStates[i].white.knights &= ~new_position;
-            newBoardStates[i].white.pawns &= ~new_position;
-        }
+        move(position, new_position, &newBoardStates[i]);
     }
 
     moves.boards = newBoardStates;

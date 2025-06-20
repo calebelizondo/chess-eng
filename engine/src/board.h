@@ -30,6 +30,7 @@ typedef struct {
     uint64_t white_positions;
     bool black_can_castle;
     bool white_can_castle;
+    uint64_t last_move;
 } BoardState;
 
 extern const uint64_t AFILE;
