@@ -5,11 +5,12 @@
 #include <emscripten.h>
 #include <stdbool.h>
 
-struct BoardState* current_board_state = NULL;
+BoardState* current_board_state = NULL;
 
 int main() {
 
     current_board_state = malloc(sizeof(STARTING_BOARD_STATE));
+    updatePositionBitmap(current_board_state);
 
     if (current_board_state == NULL) {
         return -1;
@@ -39,6 +40,7 @@ char* getCurrentBoardState() {
 EMSCRIPTEN_KEEPALIVE
 char* movePiece(char* from, char* to, bool isCastle, bool isEnpassant, bool isPromotion, char* promoteTo) {
     move(stringPositionToBitmap(from), stringPositionToBitmap(to), current_board_state);
+    updatePositionBitmap(current_board_state);
     return getCurrentBoardState();
 }
 
@@ -46,6 +48,8 @@ EMSCRIPTEN_KEEPALIVE
 char* getValidPieceMoves(char* piece) {
     //temp, black doesnt move yet. 
     current_board_state->turn = WHITE;
-    uint64_t moveBitmap = getValidMoves(stringPositionToBitmap(piece), current_board_state);
-    return moveBitmapToString(moveBitmap);
+    updatePositionBitmap(current_board_state);
+    Moves moves = getValidMoves(stringPositionToBitmap(piece), current_board_state);
+    free(moves.boards);
+    return moveBitmapToString(moves.move_bitmap);
 }

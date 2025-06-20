@@ -18,3 +18,13 @@ void printBinary(uint64_t num) {
     }
     printf("\n");
 }
+
+uint64_t extract_nth_set_bit(uint64_t bitboard, int n) {
+    for (int i = 0; i < 64; i++) {
+        if ((bitboard >> i) & 1) {
+            if (n == 0) return 1ULL << i;
+            n--;
+        }
+    }
+    return 0;
+}

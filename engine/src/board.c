@@ -8,9 +8,13 @@ const uint64_t BFILE = 0b0100000001000000010000000100000001000000010000000100000
 const uint64_t HFILE = 0b00000001000000010000000100000001000000010000000100000001;
 const uint64_t GFILE = 0b00000010000000100000001000000010000000100000001000000010;
 
-const struct BoardState STARTING_BOARD_STATE = {
+const BoardState STARTING_BOARD_STATE = {
     .turn= WHITE,
     .state= ACTIVE,
+    .black_positions = 0,
+    .white_positions = 0,
+    .white_can_castle = true,
+    .black_can_castle = true,
     .black = {
         .king = 0b0000100000000000000000000000000000000000000000000000000000000000,
         .queens = 0b0001000000000000000000000000000000000000000000000000000000000000,
@@ -29,7 +33,25 @@ const struct BoardState STARTING_BOARD_STATE = {
     }
 };
 
-char* boardStateToArray(struct BoardState* board_state) {
+void updatePositionBitmap(BoardState* board_state) {
+    board_state->black_positions = 
+        board_state->black.king | 
+        board_state->black.queens |
+        board_state->black.pawns | 
+        board_state->black.rooks |
+        board_state->black.bishops |
+        board_state->black.knights;
+
+    board_state->white_positions = 
+        board_state->white.king | 
+        board_state->white.queens |
+        board_state->white.pawns | 
+        board_state->white.rooks |
+        board_state->white.bishops |
+        board_state->white.knights;
+}
+
+char* boardStateToArray(BoardState* board_state) {
     static char board[65];
 
     for (int i = 0; i < 64; i++) {
@@ -57,7 +79,7 @@ char* boardStateToArray(struct BoardState* board_state) {
 }
 
 
-void printBoard(struct BoardState* board_state) {
+void printBoard(BoardState* board_state) {
     char* board = boardStateToArray(board_state);
 
     printf("  +------------------------+\n");
@@ -107,11 +129,8 @@ Position bitmapToPosition(uint64_t position) {
 
 
 uint64_t stringPositionToBitmap(const char* str) {
-    // Ensure valid input
     assert(str[0] >= 'a' && str[0] <= 'h');
     assert(str[1] >= '1' && str[1] <= '8');
-    printf("str:");
-    printf(str);
 
     int file = str[0] - 'a';
     int rank = str[1] - '1';
@@ -119,9 +138,6 @@ uint64_t stringPositionToBitmap(const char* str) {
     int index = (rank) * 8 + (7 - file);
 
     uint64_t bin = 1ULL << index;
-    printf("bin:");
-    printBinary(bin);
-
 
     return bin;
 }
