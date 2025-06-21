@@ -4,8 +4,11 @@
 #include "moves.h"
 #include <emscripten.h>
 #include <stdbool.h>
+#include <assert.h>
+#include <string.h>
 
 BoardState* current_board_state = NULL;
+Moves* available_moves = NULL;
 
 int main() {
 
@@ -39,24 +42,46 @@ char* getCurrentBoardState() {
 
 EMSCRIPTEN_KEEPALIVE
 char* movePiece(char* from, char* to, bool isCastle, bool isEnpassant, bool isPromotion, char* promoteTo) {
-    move(stringPositionToBitmap(from), stringPositionToBitmap(to), current_board_state);
-    updatePositionBitmap(current_board_state);
+
+    assert(available_moves != NULL);
+
+    BoardState* newBoardState;
+    uint64_t from_bitmap = stringPositionToBitmap(from);
+    uint64_t to_bitmap = stringPositionToBitmap(to);
+    for (size_t move = 0; move < available_moves->count; move++) {
+        if ((~available_moves->boards[move].white_positions & from_bitmap) &&
+                (available_moves->boards[move].white_positions & to_bitmap)) {
+            memcpy(current_board_state, &available_moves->boards[move], sizeof(BoardState));
+        }
+    }
+
+    free(available_moves->boards);
+    available_moves = NULL;
+
+
     return getCurrentBoardState();
 }
 
 EMSCRIPTEN_KEEPALIVE
 char* getValidPieceMoves(char* piece) {
-
-    printf("%d\n", 1);
-    //temp, black doesnt move yet. 
     current_board_state->turn = WHITE;
     updatePositionBitmap(current_board_state);
-    Moves moves = getValidMoves(stringPositionToBitmap(piece), current_board_state);
 
-    //temp,for now black doesn't move
-    free(moves.boards);
-    return moveBitmapToString(moves.move_bitmap);
+    if (available_moves != NULL) {
+        free(available_moves->boards);
+    } else {
+        available_moves = malloc(sizeof(Moves));
+        assert(available_moves != NULL);
+    }
+
+    Moves moves = getValidMoves(stringPositionToBitmap(piece), current_board_state);
+    available_moves->count = moves.count;
+    available_moves->move_bitmap = moves.move_bitmap;
+    available_moves->boards = moves.boards;
+
+    return moveBitmapToString(available_moves->move_bitmap);
 }
+
 
 EMSCRIPTEN_KEEPALIVE 
 bool isEnemyInCheck() {
