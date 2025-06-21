@@ -28,6 +28,8 @@ class Engine {
   public getBoardState: () => String;
   public move: (from: Space, to: Space) => String; 
   public getValidMoves: (space: Space) => String;
+  public isPlayerInCheck: () => boolean;
+  public isEnemyInCheck: () => boolean;
 
   constructor(module: any) {
     const print = module.cwrap('printCurrentBoardState', null, []);
@@ -35,9 +37,21 @@ class Engine {
     const getBoardStatePtr = module.cwrap('getCurrentBoardState', 'number', []);
     const getMovePtr = module.cwrap('movePiece', 'number', ['string', 'string', 'boolean', 'boolean', 'boolean', 'string']);
     const getMoves = module.cwrap('getValidPieceMoves', 'number', ['string']);
+    const getPlayerInCheck = module.cwrap('isPlayerInCheck', 'boolean', []);
+    const getEnemyInCheck = module.cwrap('isEnemyInCheck', 'boolean', []);
 
     this.printBoard = () => {
       print();
+    }
+
+    this.isPlayerInCheck = () => {
+      console.log("player in check?", getPlayerInCheck());
+      return getPlayerInCheck();
+    }
+
+    this.isEnemyInCheck = () => {
+      console.log("enemy in check?", getEnemyInCheck());
+      return getEnemyInCheck();
     }
 
     this.resetGame = () => {

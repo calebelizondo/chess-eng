@@ -31,9 +31,6 @@ Moves calc_queen_moves(uint64_t position, BoardState* boardState);
 //Assumes move does not put own king in check
 Moves getPsuedoLegalMoves(uint64_t piece_mask, BoardState* boardState) {
 
-    const uint64_t friendly_positions = (boardState->turn == WHITE) ? boardState->white_positions : boardState->black_positions;
-    const uint64_t enemy_positions = (boardState->turn == WHITE) ? boardState->black_positions : boardState->white_positions;
-
     Moves moves;
     
     //get all presumably valid moves
@@ -55,6 +52,8 @@ Moves getPsuedoLegalMoves(uint64_t piece_mask, BoardState* boardState) {
 }
 
 bool isInCheck(TURN side, BoardState* boardState) {
+    printf("board state:");
+    printBoard(boardState);
     const uint64_t enemy_positions = (side == WHITE) ? boardState->black_positions : boardState->white_positions; 
     const size_t enemy_piece_total = __builtin_popcountll(enemy_positions);
 
@@ -63,7 +62,12 @@ bool isInCheck(TURN side, BoardState* boardState) {
         const Moves psuedoLegalResponses = getPsuedoLegalMoves(enemy_piece_position, boardState);
 
         for (size_t response = 0; response < psuedoLegalResponses.count; response++) {
-            if (psuedoLegalResponses.boards[response].white.king == 0 || psuedoLegalResponses.boards[response].black.king == 0) {
+
+            const uint64_t king = (side == WHITE) 
+                ? psuedoLegalResponses.boards[response].white.king
+                : psuedoLegalResponses.boards[response].black.king;
+
+            if (king == 0) {
                 free(psuedoLegalResponses.boards);
                 return true;
             }
@@ -337,6 +341,7 @@ Moves calc_queen_moves(uint64_t position, BoardState* boardState) {
     for (size_t i = 0; i < queen_moves.count; i++) {
         uint64_t new_position = extract_nth_set_bit(queen_moves.move_bitmap, i);
         move(position, new_position, &queen_moves.boards[i]);
+        queen_moves.boards[i].turn = (boardState->turn == WHITE) ? BLACK : WHITE;
     }
 
 

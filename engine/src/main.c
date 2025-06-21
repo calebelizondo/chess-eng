@@ -57,3 +57,13 @@ char* getValidPieceMoves(char* piece) {
     free(moves.boards);
     return moveBitmapToString(moves.move_bitmap);
 }
+
+EMSCRIPTEN_KEEPALIVE 
+bool isEnemyInCheck() {
+    return isInCheck(BLACK, current_board_state);
+}
+
+EMSCRIPTEN_KEEPALIVE 
+bool isPlayerInCheck() {
+    return isInCheck(WHITE, current_board_state);
+}
