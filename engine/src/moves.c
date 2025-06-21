@@ -28,6 +28,53 @@ Moves calc_bishop_moves(uint64_t position, BoardState* boardState);
 Moves calc_rook_moves(uint64_t position, BoardState* boardState);
 Moves calc_queen_moves(uint64_t position, BoardState* boardState);
 
+
+#define INITIAL_BUFFER_SIZE 50
+#define GROWTH_FACTOR 1.75
+
+Moves getAllValidMoves(BoardState* boardState) {
+    size_t capacity = INITIAL_BUFFER_SIZE;
+
+
+    //initial array has set capacity
+    Moves validMoves;
+    validMoves.count = 0;
+    validMoves.move_bitmap = 0;
+    validMoves.boards = malloc(sizeof(BoardState) * capacity);
+    assert(validMoves.boards);
+
+    const uint64_t friendly_positions = (boardState->turn == WHITE)
+        ? boardState->white_positions
+        : boardState->black_positions;
+
+    const uint64_t piece_count = __builtin_popcountll(friendly_positions);
+
+    for (size_t i = 0; i < piece_count; ++i) {
+        uint64_t piece_mask = extract_nth_set_bit(friendly_positions, i);
+        Moves piece_moves = getValidMoves(piece_mask, boardState);
+
+        if (validMoves.count + piece_moves.count > capacity) {
+            while (validMoves.count + piece_moves.count > capacity) {
+                capacity = (size_t)(capacity * GROWTH_FACTOR + 1);
+            }
+            validMoves.boards = realloc(validMoves.boards, sizeof(BoardState) * capacity);
+            assert(validMoves.boards);
+        }
+
+        memcpy(&validMoves.boards[validMoves.count],
+               piece_moves.boards,
+               sizeof(BoardState) * piece_moves.count);
+
+        validMoves.count += piece_moves.count;
+        free(piece_moves.boards);
+    }
+
+    if (capacity > validMoves.count) {
+        validMoves.boards = realloc(validMoves.boards, sizeof(BoardState) * validMoves.count);
+    }
+
+    return validMoves;
+}
 //Assumes move does not put own king in check
 Moves getPsuedoLegalMoves(uint64_t piece_mask, BoardState* boardState) {
 
@@ -52,8 +99,7 @@ Moves getPsuedoLegalMoves(uint64_t piece_mask, BoardState* boardState) {
 }
 
 bool isInCheck(TURN side, BoardState* boardState) {
-    printf("board state:");
-    printBoard(boardState);
+
     const uint64_t enemy_positions = (side == WHITE) ? boardState->black_positions : boardState->white_positions; 
     const size_t enemy_piece_total = __builtin_popcountll(enemy_positions);
 
@@ -103,6 +149,7 @@ Moves getValidMoves(uint64_t piece_mask, BoardState* boardState) {
 }
 
 //used for simple moves, move from one space to another
+//more complex moves (castling etc) handled by individual piece functions
 void move(uint64_t from, uint64_t to, BoardState* boardState) {
 
     uint64_t from_mask = from;

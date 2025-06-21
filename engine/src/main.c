@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <string.h>
+#include "opponent.h"
 
 BoardState* current_board_state = NULL;
 Moves* available_moves = NULL;
@@ -58,6 +59,7 @@ char* movePiece(char* from, char* to, bool isCastle, bool isEnpassant, bool isPr
     free(available_moves->boards);
     available_moves = NULL;
 
+    makeOpponentMove(current_board_state);
 
     return getCurrentBoardState();
 }
