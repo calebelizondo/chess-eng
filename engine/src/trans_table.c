@@ -4,25 +4,7 @@
 #define TABLE_SIZE 4073
 
 
-//in board.h:
-// struct PiecePositions {
-//     int64_t king;
-//     int64_t queens;
-//     int64_t rooks;
-//     int64_t knights;
-//     int64_t bishops;
-//     int64_t pawns;
-// };
-// typedef struct {
-//     TURN turn;
-//     struct PiecePositions black;
-//     struct PiecePositions white;
-//     uint64_t black_positions;
-//     uint64_t white_positions;
-//     bool black_can_castle;
-//     bool white_can_castle;
-//     uint64_t last_move;
-// } BoardState;
+
 
 // typedef struct {
 //     uint64_t key;

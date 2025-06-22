@@ -11,10 +11,7 @@
 /*
     TODO: 
 
-    - Kings need to be able to castle
-        - needs to make sure no pieces are in the way
-        - cannot castle out of check
-        - cannot castle if either rook or king has previously moved
+    - Kings shouldn't be able to castle out of check 
     - Pawns need to be able to promote
     - Pawns need to be able to en passante
 
@@ -47,8 +44,6 @@ MoveList getAllValidMoves(const BoardState* const boardState) {
 
         const size_t new_count = validMoves.count + piece_moves.count;
         assert(new_count < 256);
-
-
 
         for (size_t move = validMoves.count; move < new_count; move++) {
             validMoves.moves[move] = piece_moves.moves[move - validMoves.count];
@@ -116,7 +111,6 @@ MoveList getValidMoves(uint64_t piece_mask, const BoardState* const boardState) 
         applied_move = *boardState;
         applyMove(pseudoLegalMoves.moves[possible_move], &applied_move);
         bool move_is_legal = !isInCheck(boardState->turn, &applied_move);
-
         if (move_is_legal) {
             legalMoves.moves[legalMoves.count] = pseudoLegalMoves.moves[possible_move];
             legalMoves.count++;
@@ -126,20 +120,60 @@ MoveList getValidMoves(uint64_t piece_mask, const BoardState* const boardState) 
     return legalMoves;
 }
 
+void removeCastleFlags(BoardState* boardState) {
+
+    if (boardState->turn == WHITE) {
+        boardState->can_castle &= ~WHITE_KINGSIDE;
+        boardState->can_castle &= ~WHITE_QUEENSIDE;
+    } else {
+        boardState->can_castle &= ~BLACK_KINGSIDE;
+        boardState->can_castle &= ~BLACK_QUEENSIDE; 
+    }
+}
+
 
 /*
     TODO: properly handle flags (castle, promotion, en-passante)
     set valid en-passant bitmap
 */
+
 void applyMove(Move move, BoardState* boardState) {
 
     uint64_t from_mask = move.from;
     uint64_t to_mask = move.to;
-    
-    if (boardState->turn == WHITE) {
+
+    //handle castle
+    if (move.flags & FLAG_CASTLE_QUEENSIDE) {
+        if (boardState->turn == WHITE) {
+            boardState->white.king = 1ULL << 5;
+            boardState->white.rooks &= ~(1ULL << 7);
+            boardState->white.rooks |= 1ULL << 4;
+        } else {
+            boardState->black.king = 1ULL << 61;
+            boardState->black.rooks &= ~(1ULL << 63);
+            boardState->black.rooks |= 1ULL << 60;
+        }
+
+        removeCastleFlags(boardState);
+    } else if (move.flags & FLAG_CASTLE_KINGSIDE) {
+        if (boardState->turn == WHITE) {
+            boardState->white.king = (1ULL << 1);
+            boardState->white.rooks &= ~(1ULL << 0);
+            boardState->white.rooks |= 1ULL << 2;
+        } else {
+            boardState->black.king = 1ULL << 57;
+            boardState->black.rooks &= ~(1ULL << 56); 
+            boardState->black.rooks |= (1ULL << 58);
+        }
+        removeCastleFlags(boardState);
+    } //general case, turn = WHITE
+    else if (boardState->turn == WHITE) {
 
         //move friendly piece
-        if ((boardState->white.king & from_mask) != 0) boardState->white.king |= to_mask;
+        if ((boardState->white.king & from_mask) != 0) {
+            removeCastleFlags(boardState);
+            boardState->white.king |= to_mask;
+        }
         if ((boardState->white.queens & from_mask) != 0) boardState->white.queens |= to_mask;
         if ((boardState->white.rooks & from_mask) != 0) boardState->white.rooks |= to_mask;
         if ((boardState->white.bishops & from_mask) != 0) boardState->white.bishops |= to_mask;
@@ -162,7 +196,10 @@ void applyMove(Move move, BoardState* boardState) {
         boardState->black.pawns &= ~to_mask;
     } else {
 
-        if ((boardState->black.king & from_mask) != 0) boardState->black.king |= to_mask;
+        if ((boardState->black.king & from_mask) != 0) {
+            removeCastleFlags(boardState);
+            boardState->black.king |= to_mask;
+        }
         if ((boardState->black.queens & from_mask) != 0) boardState->black.queens |= to_mask;
         if ((boardState->black.rooks & from_mask) != 0) boardState->black.rooks |= to_mask;
         if ((boardState->black.bishops & from_mask) != 0) boardState->black.bishops |= to_mask;
@@ -185,6 +222,8 @@ void applyMove(Move move, BoardState* boardState) {
         boardState->white.pawns &= ~to_mask;
 
     }
+
+
     if (boardState->turn == WHITE) boardState->turn = BLACK;
     else boardState->turn = WHITE;
 
@@ -193,12 +232,17 @@ void applyMove(Move move, BoardState* boardState) {
 
 }
 
-//TODO: castle
 MoveList calc_king_moves(uint64_t position, const BoardState* const boardState) {
 
     uint64_t friendly_positions = (boardState->turn == WHITE) ? boardState->white_positions : boardState->black_positions;
     uint64_t enemy_positions = (boardState->turn == WHITE) ? boardState->black_positions : boardState->white_positions;
-    bool can_castle = (boardState->turn == WHITE) ? boardState->white_can_castle : boardState->black_can_castle;
+    uint64_t all_positions = friendly_positions | enemy_positions;
+    uint64_t friendly_queenside_castle_mask = (boardState->turn == WHITE) ? QUEENSIDE_WHITE_CASTLE_MASK : QUEENSIDE_BLACK_CASTLE_MASK;
+    uint64_t friendly_kingside_castle_mask = (boardState->turn == WHITE) ? KINGSIDE_WHITE_CASTLE_MASK : KINGSIDE_BLACK_CASTLE_MASK;
+    uint64_t can_castle_queenside = ((boardState->turn == WHITE) ? (boardState->can_castle & WHITE_QUEENSIDE) :
+        (boardState->can_castle & BLACK_QUEENSIDE)) && ((all_positions & friendly_queenside_castle_mask) == 0);
+    uint64_t can_castle_kingside = ((boardState->turn == WHITE) ? (boardState->can_castle & WHITE_KINGSIDE) :
+        (boardState->can_castle & BLACK_KINGSIDE)) && ((all_positions & friendly_kingside_castle_mask) == 0);
     
     uint64_t candidate_positions = 0;
     const char file = bitmapToPosition(position).file; 
@@ -233,9 +277,31 @@ MoveList calc_king_moves(uint64_t position, const BoardState* const boardState) 
         move.to = new_position;
         move.flags = (new_position & enemy_positions) ? FLAG_CAPTURE : FLAG_NONE;
         move.promotion = NO_PROMOTION;
+
         moves.moves[i] = move;
     }
 
+    if (can_castle_kingside) {
+        Move kingside_castle;
+        kingside_castle.from = position;
+        kingside_castle.to = (boardState->turn == WHITE) ? (1ULL << 1) : (1ULL << 57);
+        kingside_castle.flags = FLAG_NONE | FLAG_CASTLE_KINGSIDE;
+        kingside_castle.promotion = NO_PROMOTION;
+
+        moves.moves[moves.count] = kingside_castle;
+        moves.count++;
+    }
+
+    if (can_castle_queenside) {
+        Move queenside_castle;
+        queenside_castle.from = position;
+        queenside_castle.to = (boardState->turn == WHITE) ? (1ULL << 5) : (1ULL << 61);
+        queenside_castle.flags = FLAG_NONE | FLAG_CASTLE_QUEENSIDE;
+        queenside_castle.promotion = NO_PROMOTION;
+
+        moves.moves[moves.count] = queenside_castle;
+        moves.count++;
+    }
 
     return moves;
 }

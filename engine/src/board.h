@@ -20,14 +20,22 @@ typedef struct {
     char row;
 } Position;
 
+typedef enum {
+    NONE = 0,
+    BLACK_QUEENSIDE = 1 << 0,
+    WHITE_QUEENSIDE = 1 << 2,
+    BLACK_KINGSIDE = 1 << 3,
+    WHITE_KINGSIDE = 1 << 4,
+} CanCastle;
+
 typedef struct {
     TURN turn;
     struct PiecePositions black;
     struct PiecePositions white;
     uint64_t black_positions;
     uint64_t white_positions;
-    bool black_can_castle;
-    bool white_can_castle;
+    CanCastle can_castle;
+    uint64_t valid_enpassant;
     uint64_t last_move;
 } BoardState;
 
@@ -35,6 +43,11 @@ extern const uint64_t AFILE;
 extern const uint64_t BFILE;
 extern const uint64_t HFILE;
 extern const uint64_t GFILE;
+
+extern const uint64_t QUEENSIDE_BLACK_CASTLE_MASK;
+extern const uint64_t QUEENSIDE_WHITE_CASTLE_MASK;
+extern const uint64_t KINGSIDE_BLACK_CASTLE_MASK;
+extern const uint64_t KINGSIDE_WHITE_CASTLE_MASK;
 
 extern const BoardState STARTING_BOARD_STATE;
 extern Position bitmapToPosition(uint64_t position);
