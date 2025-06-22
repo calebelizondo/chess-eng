@@ -9,7 +9,7 @@
 #include "opponent.h"
 
 BoardState* current_board_state = NULL;
-Moves* available_moves = NULL;
+MoveList* available_moves = NULL;
 
 int main() {
 
@@ -46,20 +46,25 @@ char* movePiece(char* from, char* to, bool isCastle, bool isEnpassant, bool isPr
 
     assert(available_moves != NULL);
 
-    BoardState* newBoardState;
+    //find the move that matches our to, from move
     uint64_t from_bitmap = stringPositionToBitmap(from);
     uint64_t to_bitmap = stringPositionToBitmap(to);
+    bool move_found = false;
     for (size_t move = 0; move < available_moves->count; move++) {
-        if ((~available_moves->boards[move].white_positions & from_bitmap) &&
-                (available_moves->boards[move].white_positions & to_bitmap)) {
-            memcpy(current_board_state, &available_moves->boards[move], sizeof(BoardState));
-        }
+        Move cur_move = available_moves->moves[move];
+
+        if ((cur_move.to == to_bitmap) && (cur_move.from == from_bitmap)) {
+            applyMove(cur_move, current_board_state);
+            move_found = true;
+            break;
+        } 
     }
 
-    free(available_moves->boards);
+    assert(move_found);
+    free(available_moves);
     available_moves = NULL;
 
-    makeOpponentMove(current_board_state);
+    // makeOpponentMove(current_board_state);
 
     return getCurrentBoardState();
 }
@@ -69,19 +74,21 @@ char* getValidPieceMoves(char* piece) {
     current_board_state->turn = WHITE;
     updatePositionBitmap(current_board_state);
 
-    if (available_moves != NULL) {
-        free(available_moves->boards);
-    } else {
-        available_moves = malloc(sizeof(Moves));
+    if (available_moves == NULL) {
+        available_moves = malloc(sizeof(MoveList));
         assert(available_moves != NULL);
     }
 
-    Moves moves = getValidMoves(stringPositionToBitmap(piece), current_board_state);
+    MoveList moves = getValidMoves(stringPositionToBitmap(piece), current_board_state);
     available_moves->count = moves.count;
-    available_moves->move_bitmap = moves.move_bitmap;
-    available_moves->boards = moves.boards;
 
-    return moveBitmapToString(available_moves->move_bitmap);
+    uint64_t moves_bitmap = 0;
+    for (size_t i = 0; i < moves.count; i++) {
+        available_moves->moves[i] = moves.moves[i];
+        moves_bitmap |= moves.moves[i].to;
+    }
+
+    return moveBitmapToString(moves_bitmap);
 }
 
 

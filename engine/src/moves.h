@@ -3,22 +3,40 @@
 #ifndef MOVES_H
 #define MOVES_H
 
+typedef enum {
+    NO_PROMOTION = 0,
+    PROMOTE_KNIGHT = 1,
+    PROMOTE_BISHOP = 2,
+    PROMOTE_ROOK   = 3,
+    PROMOTE_QUEEN  = 4
+} PromotionType;
+
+typedef enum {
+    FLAG_NONE        = 0,
+    FLAG_EN_PASSANT  = 1 << 0,
+    FLAG_CASTLE_KINGSIDE = 1 << 1,
+    FLAG_CASTLE_QUEENSIDE = 1 << 2,
+    FLAG_CAPTURE     = 1 << 3
+} MoveFlags;
 
 typedef struct {
-    //where are the valid spots to move?
-    uint64_t move_bitmap;
-    //new states that would be triggered by each possible moves
-    BoardState* boards;
-    //the amount of possible moves
+    uint64_t from;
+    uint64_t to;
+    PromotionType promotion;
+    MoveFlags flags;
+} Move;
+
+typedef struct {
+    Move moves[256];
     size_t count;
-} Moves;
+} MoveList;
 
 
 // extern BoardState** calcValidMoves(uint64_t position, BoardState* boardState);
-extern Moves getAllValidMoves(BoardState* boardState);
-extern void move(uint64_t from, uint64_t to, BoardState* boardState);
-extern bool isInCheck(TURN side, BoardState* boardState);
-extern Moves getValidMoves(uint64_t piece_mask, BoardState* boardState);
+extern MoveList getAllValidMoves(const BoardState* const boardState);
+extern void applyMove(Move move, BoardState* boardState);
+extern bool isInCheck(TURN side, const BoardState* const boardState);
+extern MoveList getValidMoves(uint64_t piece_mask, const BoardState* const boardState);
 extern void printBinary(uint64_t num);
 
 #endif

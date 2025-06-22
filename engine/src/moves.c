@@ -21,27 +21,19 @@
 */
 
 
-Moves calc_pawn_moves(uint64_t position, BoardState* boardState);
-Moves calc_king_moves(uint64_t position, BoardState* boardState);
-Moves calc_knight_moves(uint64_t position, BoardState* boardState);
-Moves calc_bishop_moves(uint64_t position, BoardState* boardState);
-Moves calc_rook_moves(uint64_t position, BoardState* boardState);
-Moves calc_queen_moves(uint64_t position, BoardState* boardState);
+MoveList calc_pawn_moves(uint64_t position, const BoardState* const boardState);
+MoveList calc_king_moves(uint64_t position, const BoardState* const boardState);
+MoveList calc_knight_moves(uint64_t position, const BoardState* const boardState);
+MoveList calc_bishop_moves(uint64_t position, const BoardState* const boardState);
+MoveList calc_rook_moves(uint64_t position, const BoardState* const boardState);
+MoveList calc_queen_moves(uint64_t position, const BoardState* const boardState);
 
 
-#define INITIAL_BUFFER_SIZE 50
-#define GROWTH_FACTOR 1.75
-
-Moves getAllValidMoves(BoardState* boardState) {
-    size_t capacity = INITIAL_BUFFER_SIZE;
-
+MoveList getAllValidMoves(const BoardState* const boardState) {
 
     //initial array has set capacity
-    Moves validMoves;
+    MoveList validMoves;
     validMoves.count = 0;
-    validMoves.move_bitmap = 0;
-    validMoves.boards = malloc(sizeof(BoardState) * capacity);
-    assert(validMoves.boards);
 
     const uint64_t friendly_positions = (boardState->turn == WHITE)
         ? boardState->white_positions
@@ -51,34 +43,27 @@ Moves getAllValidMoves(BoardState* boardState) {
 
     for (size_t i = 0; i < piece_count; ++i) {
         uint64_t piece_mask = extract_nth_set_bit(friendly_positions, i);
-        Moves piece_moves = getValidMoves(piece_mask, boardState);
+        MoveList piece_moves = getValidMoves(piece_mask, boardState);
 
-        if (validMoves.count + piece_moves.count > capacity) {
-            while (validMoves.count + piece_moves.count > capacity) {
-                capacity = (size_t)(capacity * GROWTH_FACTOR + 1);
-            }
-            validMoves.boards = realloc(validMoves.boards, sizeof(BoardState) * capacity);
-            assert(validMoves.boards);
+        const size_t new_count = validMoves.count + piece_moves.count;
+        assert(new_count < 256);
+
+
+
+        for (size_t move = validMoves.count; move < new_count; move++) {
+            validMoves.moves[move] = piece_moves.moves[move - validMoves.count];
         }
 
-        memcpy(&validMoves.boards[validMoves.count],
-               piece_moves.boards,
-               sizeof(BoardState) * piece_moves.count);
-
         validMoves.count += piece_moves.count;
-        free(piece_moves.boards);
-    }
-
-    if (capacity > validMoves.count) {
-        validMoves.boards = realloc(validMoves.boards, sizeof(BoardState) * validMoves.count);
     }
 
     return validMoves;
 }
 //Assumes move does not put own king in check
-Moves getPsuedoLegalMoves(uint64_t piece_mask, BoardState* boardState) {
+MoveList getPsuedoLegalMoves(uint64_t piece_mask, const BoardState* const boardState) {
 
-    Moves moves;
+    MoveList moves;
+    moves.count = -1;
     
     //get all presumably valid moves
     if ((boardState->white.pawns & piece_mask) || (boardState->black.pawns & piece_mask)) {
@@ -98,62 +83,58 @@ Moves getPsuedoLegalMoves(uint64_t piece_mask, BoardState* boardState) {
     return moves;
 }
 
-bool isInCheck(TURN side, BoardState* boardState) {
+bool isInCheck(TURN side, const BoardState* const boardState) {
 
     const uint64_t enemy_positions = (side == WHITE) ? boardState->black_positions : boardState->white_positions; 
+    const uint64_t friendly_king = (side == WHITE) ? boardState->white.king : boardState->black.king;
     const size_t enemy_piece_total = __builtin_popcountll(enemy_positions);
 
     for (size_t enemy_piece = 0; enemy_piece < enemy_piece_total; enemy_piece++) {
         const uint64_t enemy_piece_position = extract_nth_set_bit(enemy_positions, enemy_piece);
-        const Moves psuedoLegalResponses = getPsuedoLegalMoves(enemy_piece_position, boardState);
+        const MoveList psuedoLegalResponses = getPsuedoLegalMoves(enemy_piece_position, boardState);
 
         for (size_t response = 0; response < psuedoLegalResponses.count; response++) {
 
-            const uint64_t king = (side == WHITE) 
-                ? psuedoLegalResponses.boards[response].white.king
-                : psuedoLegalResponses.boards[response].black.king;
-
-            if (king == 0) {
-                free(psuedoLegalResponses.boards);
+            //if enemy can "capture" king, check
+            if ((friendly_king & psuedoLegalResponses.moves[response].to) != 0) {
                 return true;
             }
         }
-
-        free(psuedoLegalResponses.boards);
     }
-
     return false;
 }
 
 //Assumption: If a move allows a response that could capture the King, it is illegal: 
-Moves getValidMoves(uint64_t piece_mask, BoardState* boardState) {
-    Moves pseudoLegalMoves = getPsuedoLegalMoves(piece_mask, boardState);
-    Moves legalMoves;
-    legalMoves.boards = malloc(sizeof(BoardState) * pseudoLegalMoves.count);
+MoveList getValidMoves(uint64_t piece_mask, const BoardState* const boardState) {
+    MoveList pseudoLegalMoves = getPsuedoLegalMoves(piece_mask, boardState);
+    MoveList legalMoves;
     legalMoves.count = 0;
-    legalMoves.move_bitmap = 0;
+
+    BoardState applied_move;
 
     for (size_t possible_move = 0; possible_move < pseudoLegalMoves.count; possible_move++) {
-
-        bool move_is_legal = !isInCheck(boardState->turn, &pseudoLegalMoves.boards[possible_move]);
+        applied_move = *boardState;
+        applyMove(pseudoLegalMoves.moves[possible_move], &applied_move);
+        bool move_is_legal = !isInCheck(boardState->turn, &applied_move);
 
         if (move_is_legal) {
-            memcpy(&legalMoves.boards[legalMoves.count], &pseudoLegalMoves.boards[possible_move], sizeof(BoardState));
+            legalMoves.moves[legalMoves.count] = pseudoLegalMoves.moves[possible_move];
             legalMoves.count++;
-            legalMoves.move_bitmap |= pseudoLegalMoves.boards[possible_move].last_move;
         }
     }
 
-    free(pseudoLegalMoves.boards);
     return legalMoves;
 }
 
-//used for simple moves, move from one space to another
-//more complex moves (castling etc) handled by individual piece functions
-void move(uint64_t from, uint64_t to, BoardState* boardState) {
 
-    uint64_t from_mask = from;
-    uint64_t to_mask = to;
+/*
+    TODO: properly handle flags (castle, promotion, en-passante)
+    set valid en-passant bitmap
+*/
+void applyMove(Move move, BoardState* boardState) {
+
+    uint64_t from_mask = move.from;
+    uint64_t to_mask = move.to;
     
     if (boardState->turn == WHITE) {
 
@@ -207,20 +188,17 @@ void move(uint64_t from, uint64_t to, BoardState* boardState) {
     if (boardState->turn == WHITE) boardState->turn = BLACK;
     else boardState->turn = WHITE;
 
-    boardState->last_move = to;
+    boardState->last_move = to_mask;
     updatePositionBitmap(boardState);
 
 }
 
 //TODO: castle
-Moves calc_king_moves(uint64_t position, BoardState* boardState) {
+MoveList calc_king_moves(uint64_t position, const BoardState* const boardState) {
 
     uint64_t friendly_positions = (boardState->turn == WHITE) ? boardState->white_positions : boardState->black_positions;
+    uint64_t enemy_positions = (boardState->turn == WHITE) ? boardState->black_positions : boardState->white_positions;
     bool can_castle = (boardState->turn == WHITE) ? boardState->white_can_castle : boardState->black_can_castle;
-
-    if (!can_castle) {
-
-    }
     
     uint64_t candidate_positions = 0;
     const char file = bitmapToPosition(position).file; 
@@ -243,26 +221,26 @@ Moves calc_king_moves(uint64_t position, BoardState* boardState) {
         candidate_positions &= ~AFILE;
     }
 
-    Moves moves;
+    const uint64_t move_bitmap = candidate_positions;
 
-
-    moves.move_bitmap = candidate_positions;
+    MoveList moves;
     moves.count =  __builtin_popcountll(candidate_positions);
 
-    BoardState* newBoardStates = malloc(sizeof(BoardState) * moves.count);
-
     for (size_t i = 0; i < moves.count; i++) {
-        uint64_t new_position = extract_nth_set_bit(moves.move_bitmap, i);
-        newBoardStates[i] = *boardState;
-        move(position, new_position, &newBoardStates[i]);
+        uint64_t new_position = extract_nth_set_bit(move_bitmap, i);
+        Move move; 
+        move.from = position;
+        move.to = new_position;
+        move.flags = (new_position & enemy_positions) ? FLAG_CAPTURE : FLAG_NONE;
+        move.promotion = NO_PROMOTION;
+        moves.moves[i] = move;
     }
 
-    moves.boards = newBoardStates;
 
     return moves;
 }
 
-Moves calc_bishop_moves(uint64_t position, BoardState* boardState) {
+MoveList calc_bishop_moves(uint64_t position, const BoardState* const boardState) {
     uint64_t candidate_positions = 0;
     int square = __builtin_ctzll(position); 
     uint64_t friendly_positions = (boardState->turn == WHITE) ? boardState->white_positions : boardState->black_positions;
@@ -292,25 +270,27 @@ Moves calc_bishop_moves(uint64_t position, BoardState* boardState) {
         }
     }
 
-    Moves moves;
-    moves.move_bitmap = candidate_positions;
-    moves.count = __builtin_popcountll(candidate_positions);
-    BoardState* newBoardStates = malloc(sizeof(BoardState) * moves.count);
+    const uint64_t move_bitmap = candidate_positions;
 
-    //create board states
+    MoveList moves;
+    moves.count =  __builtin_popcountll(candidate_positions);
+
     for (size_t i = 0; i < moves.count; i++) {
-        uint64_t new_position = extract_nth_set_bit(moves.move_bitmap, i);
-        newBoardStates[i] = *boardState;
-        move(position, new_position, &newBoardStates[i]);
+        uint64_t new_position = extract_nth_set_bit(move_bitmap, i);
+        Move move; 
+        move.from = position;
+        move.to = new_position;
+        move.flags = (new_position & enemy_positions) ? FLAG_CAPTURE : FLAG_NONE;
+        move.promotion = NO_PROMOTION;
+        moves.moves[i] = move;
     }
 
-    moves.boards = newBoardStates;
 
     return moves;
 }
 
 
-Moves calc_rook_moves(uint64_t position, BoardState* boardState) {
+MoveList calc_rook_moves(uint64_t position, const BoardState* const boardState) {
     uint64_t candidate_positions = 0;
     int square = __builtin_ctzll(position);
     uint64_t friendly_positions = (boardState->turn == WHITE) ? boardState->white_positions : boardState->black_positions;
@@ -348,59 +328,52 @@ Moves calc_rook_moves(uint64_t position, BoardState* boardState) {
         if (mask & enemy_positions) break;
     }
 
-    Moves moves;
-    moves.move_bitmap = candidate_positions;
-    moves.count = __builtin_popcountll(candidate_positions);
-    BoardState* newBoardStates = malloc(sizeof(BoardState) * moves.count);
+    const uint64_t move_bitmap = candidate_positions;
 
-    //create board states
+    MoveList moves;
+    moves.count =  __builtin_popcountll(candidate_positions);
+
     for (size_t i = 0; i < moves.count; i++) {
-        uint64_t new_position = extract_nth_set_bit(moves.move_bitmap, i);
-        newBoardStates[i] = *boardState;
-        move(position, new_position, &newBoardStates[i]);
+        uint64_t new_position = extract_nth_set_bit(move_bitmap, i);
+        Move move; 
+        move.from = position;
+        move.to = new_position;
+        move.flags = (new_position & enemy_positions) ? FLAG_CAPTURE : FLAG_NONE;
+        move.promotion = NO_PROMOTION;
+        moves.moves[i] = move;
     }
 
-    moves.boards = newBoardStates;
 
     return moves;
 
 }
 
 
-Moves calc_queen_moves(uint64_t position, BoardState* boardState) {
+MoveList calc_queen_moves(uint64_t position, const BoardState* const boardState) {
     
-    Moves bish_moves = calc_bishop_moves(position, boardState);
-    Moves rook_moves = calc_rook_moves(position, boardState);
+    MoveList bish_moves = calc_bishop_moves(position, boardState);
+    MoveList rook_moves = calc_rook_moves(position, boardState);
+
+    MoveList queen_moves;
+    queen_moves.count = rook_moves.count + bish_moves.count;
 
 
-    Moves queen_moves;
-    queen_moves.count = bish_moves.count + rook_moves.count;
-    queen_moves.move_bitmap = bish_moves.move_bitmap | rook_moves.move_bitmap;
-    queen_moves.boards = malloc(sizeof(BoardState) * queen_moves.count);
-
-    memcpy(queen_moves.boards, bish_moves.boards, sizeof(BoardState) * bish_moves.count);
-    memcpy(queen_moves.boards + bish_moves.count, rook_moves.boards, sizeof(BoardState) * rook_moves.count);
-
-    free(bish_moves.boards);
-    free(rook_moves.boards);
-
-    //create board states
-    for (size_t i = 0; i < queen_moves.count; i++) {
-        uint64_t new_position = extract_nth_set_bit(queen_moves.move_bitmap, i);
-        move(position, new_position, &queen_moves.boards[i]);
-        queen_moves.boards[i].turn = (boardState->turn == WHITE) ? BLACK : WHITE;
+    for (size_t i = 0; i < rook_moves.count; i++) {
+        queen_moves.moves[i] = rook_moves.moves[i];
     }
 
+    for (size_t i = rook_moves.count; i < queen_moves.count; i++) {
+        queen_moves.moves[i] = bish_moves.moves[i - rook_moves.count];
+    } 
 
     return queen_moves;
 }
 
-Moves calc_knight_moves(uint64_t position, BoardState* boardState) {
-
-    Moves moves;
+MoveList calc_knight_moves(uint64_t position, const BoardState* const boardState) {
 
     uint64_t candidate_positions = 0;
     char file = bitmapToPosition(position).file;
+    uint64_t enemy_positions = (boardState->turn == WHITE) ? boardState->black_positions : boardState->white_positions;
     uint64_t friendly_positions = (boardState->turn == WHITE) ? boardState->white_positions : boardState->black_positions;
     
     if (file > 'a') {
@@ -426,22 +399,21 @@ Moves calc_knight_moves(uint64_t position, BoardState* boardState) {
 
     candidate_positions &= ~friendly_positions;
 
-    //count all the possible moves
-    int count = __builtin_popcountll(candidate_positions);
-    moves.count = count;
-    moves.move_bitmap = candidate_positions;
+    const uint64_t move_bitmap = candidate_positions;
 
-    //allocate array for each possible board state
-    BoardState* newBoardStates = malloc(sizeof(BoardState) * count);
+    MoveList moves;
+    moves.count =  __builtin_popcountll(candidate_positions);
 
-    //create board states
-    for (size_t i = 0; i < count; i++) {
-        uint64_t new_position = extract_nth_set_bit(moves.move_bitmap, i);
-        newBoardStates[i] = *boardState;
-        move(position, new_position, &newBoardStates[i]);
+    for (size_t i = 0; i < moves.count; i++) {
+        uint64_t new_position = extract_nth_set_bit(move_bitmap, i);
+        Move move; 
+        move.from = position;
+        move.to = new_position;
+        move.flags = (new_position & enemy_positions) ? FLAG_CAPTURE : FLAG_NONE;
+        move.promotion = NO_PROMOTION;
+        moves.moves[i] = move;
     }
 
-    moves.boards = newBoardStates;
 
     return moves;
 
@@ -449,7 +421,7 @@ Moves calc_knight_moves(uint64_t position, BoardState* boardState) {
 
 
 //TODO: promotion and en-passant
-Moves calc_pawn_moves(uint64_t position, BoardState* boardState) {
+MoveList calc_pawn_moves(uint64_t position, const BoardState* const boardState) {
 
     uint64_t friendly_positions = (boardState->turn == WHITE) ? boardState->white_positions : boardState->black_positions;
     uint64_t enemy_positions = (boardState->turn == WHITE) ? boardState->black_positions : boardState->white_positions;
@@ -485,22 +457,21 @@ Moves calc_pawn_moves(uint64_t position, BoardState* boardState) {
         candidate_positions &= ~AFILE;
     }
 
-    int count = __builtin_popcountll(candidate_positions);
-    Moves moves;
-    moves.count = count;
-    moves.move_bitmap = candidate_positions;
+    const uint64_t move_bitmap = candidate_positions;
 
-    //allocate array for each possible board state
-    BoardState* newBoardStates = malloc(sizeof(BoardState) * count);
+    MoveList moves;
+    moves.count =  __builtin_popcountll(candidate_positions);
 
-    //create board states
-    for (size_t i = 0; i < count; i++) {
-        uint64_t new_position = extract_nth_set_bit(moves.move_bitmap, i);
-        newBoardStates[i] = *boardState;
-        move(position, new_position, &newBoardStates[i]);
+    for (size_t i = 0; i < moves.count; i++) {
+        uint64_t new_position = extract_nth_set_bit(move_bitmap, i);
+        Move move; 
+        move.from = position;
+        move.to = new_position;
+        move.flags = (new_position & enemy_positions) ? FLAG_CAPTURE : FLAG_NONE;
+        move.promotion = NO_PROMOTION;
+        moves.moves[i] = move;
     }
 
-    moves.boards = newBoardStates;
 
     return moves;
 }

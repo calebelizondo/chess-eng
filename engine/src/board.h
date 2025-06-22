@@ -14,7 +14,6 @@ struct PiecePositions {
 };
 
 typedef enum { WHITE, BLACK } TURN;
-typedef enum { ACTIVE, INACTIVE } GAME_STATE;
 
 typedef struct {
     char file;
@@ -23,7 +22,6 @@ typedef struct {
 
 typedef struct {
     TURN turn;
-    GAME_STATE state;
     struct PiecePositions black;
     struct PiecePositions white;
     uint64_t black_positions;

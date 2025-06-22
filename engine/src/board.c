@@ -10,7 +10,6 @@ const uint64_t GFILE = 0b0000001000000010000000100000001000000010000000100000001
 
 const BoardState STARTING_BOARD_STATE = {
     .turn= WHITE,
-    .state= ACTIVE,
     .black_positions = 0,
     .white_positions = 0,
     .white_can_castle = true,
