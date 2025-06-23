@@ -1,23 +1,22 @@
 import { useGameState } from '../GameState/GameState'
-import { ENGINE } from '../Engine/Engine';
 
 const Menu = () => {
 
     const gameState = useGameState();
     if (gameState === null) return <></>;
 
-    const {setState} = gameState;
+    // const {setState} = gameState;
 
     return (
         <div>
-            <button onClick={() => {
+            {/* <button onClick={() => {
                 ENGINE.resetGame().then((result: String) => {
                     console.log("new state", result);
                     setState({activePiece: null, positions: result})
                 })}}>
                 Reset Board
             </button>
-            <button onClick={() => ENGINE.printBoard()}>Print board</button>
+            <button onClick={() => ENGINE.printBoard()}>Print board</button> */}
         </div>
     )
 }

@@ -6,7 +6,7 @@ import type { Space } from "../Board/types";
 import "./styles.css";
 import { ENGINE } from "../Engine/Engine";
 
-const Piece: React.FC<{char: string, index: number, space: Space, validMove: boolean}> = ({char, index, space, validMove}) => {
+const Piece: React.FC<{char: string, index: number, space: Space, validMove: boolean}> = ({char, space, validMove}) => {
   
   const piece = charToPiece(char);
   const gameState = useGameState();

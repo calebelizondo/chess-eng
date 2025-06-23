@@ -89,5 +89,11 @@ class Engine {
   }
 }
 
-const module = await loadEngineModule();
-export const ENGINE = new Engine(module);
+let ENGINE: Engine;
+
+export async function initEngine(): Promise<void> {
+  const module = await loadEngineModule();
+  ENGINE = new Engine(module);
+}
+
+export { ENGINE };
