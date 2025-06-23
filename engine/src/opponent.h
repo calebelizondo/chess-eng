@@ -1,5 +1,3 @@
-#import "board.h"
-
 #ifndef OPPONENT_H
 #define OPPONENT_H
 

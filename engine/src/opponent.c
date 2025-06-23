@@ -20,19 +20,19 @@ double scorePosition(BoardState* boardState) {
     double black_score = 0;
 
 
-    white_score += __builtin_popcountll(boardState->white.king) * 50;
-    white_score += __builtin_popcountll(boardState->white.queens) * 8;
-    white_score += __builtin_popcountll(boardState->white.rooks) * 5;
-    white_score += __builtin_popcountll(boardState->white.knights) * 3;
-    white_score += __builtin_popcountll(boardState->white.bishops) * 3;
-    white_score += __builtin_popcountll(boardState->white.pawns);
+    white_score += __builtin_popcountll(boardState->white[KING]) * 50;
+    white_score += __builtin_popcountll(boardState->white[QUEEN]) * 8;
+    white_score += __builtin_popcountll(boardState->white[ROOK]) * 5;
+    white_score += __builtin_popcountll(boardState->white[KNIGHT]) * 3;
+    white_score += __builtin_popcountll(boardState->white[BISHOP]) * 3;
+    white_score += __builtin_popcountll(boardState->white[PAWN]);
 
-    black_score += __builtin_popcountll(boardState->black.king) * 50;
-    black_score += __builtin_popcountll(boardState->black.queens) * 8;
-    black_score += __builtin_popcountll(boardState->black.rooks) * 5;
-    black_score += __builtin_popcountll(boardState->black.knights) * 3;
-    black_score += __builtin_popcountll(boardState->black.bishops) * 3;
-    black_score += __builtin_popcountll(boardState->black.pawns);
+    black_score += __builtin_popcountll(boardState->black[KING]) * 50;
+    black_score += __builtin_popcountll(boardState->black[QUEEN]) * 8;
+    black_score += __builtin_popcountll(boardState->black[ROOK]) * 5;
+    black_score += __builtin_popcountll(boardState->black[KNIGHT]) * 3;
+    black_score += __builtin_popcountll(boardState->black[BISHOP]) * 3;
+    black_score += __builtin_popcountll(boardState->black[PAWN]);
 
     return white_score - black_score;
 }

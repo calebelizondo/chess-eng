@@ -1,7 +1,8 @@
-#include "board.h"
-
 #ifndef MOVES_H
 #define MOVES_H
+
+#include "board.h"
+#include <string.h>
 
 typedef enum {
     NO_PROMOTION = 0,
@@ -31,8 +32,6 @@ typedef struct {
     size_t count;
 } MoveList;
 
-
-// extern BoardState** calcValidMoves(uint64_t position, BoardState* boardState);
 extern MoveList getAllValidMoves(const BoardState* const boardState);
 extern void applyMove(Move move, BoardState* boardState);
 extern bool isInCheck(TURN side, const BoardState* const boardState);

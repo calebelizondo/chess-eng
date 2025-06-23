@@ -23,39 +23,39 @@ const BoardState STARTING_BOARD_STATE = {
     .valid_enpassant = 0,
     .last_move = 0,
     .black = {
-        .king = 0b0000100000000000000000000000000000000000000000000000000000000000,
-        .queens = 0b0001000000000000000000000000000000000000000000000000000000000000,
-        .rooks = 0b1000000100000000000000000000000000000000000000000000000000000000,
-        .knights = 0b0100001000000000000000000000000000000000000000000000000000000000,
-        .bishops = 0b0010010000000000000000000000000000000000000000000000000000000000,
-        .pawns = 0b0000000011111111000000000000000000000000000000000000000000000000,
+        [KING] = 0b0000100000000000000000000000000000000000000000000000000000000000,
+        [QUEEN] = 0b0001000000000000000000000000000000000000000000000000000000000000,
+        [ROOK] = 0b1000000100000000000000000000000000000000000000000000000000000000,
+        [KNIGHT] = 0b0100001000000000000000000000000000000000000000000000000000000000,
+        [BISHOP] = 0b0010010000000000000000000000000000000000000000000000000000000000,
+        [PAWN] = 0b0000000011111111000000000000000000000000000000000000000000000000,
     },
     .white = {
-        .king = 0b0000000000000000000000000000000000000000000000000000000000001000,
-        .queens = 0b00000000000000000000000000000000000000000000000000000000010000,
-        .rooks = 0b0000000000000000000000000000000000000000000000000000000010000001,
-        .knights = 0b0000000000000000000000000000000000000000000000000000000001000010,
-        .bishops = 0b0000000000000000000000000000000000000000000000000000000000100100,
-        .pawns = 0b0000000000000000000000000000000000000000000000001111111100000000,
+        [KING] = 0b0000000000000000000000000000000000000000000000000000000000001000,
+        [QUEEN] = 0b00000000000000000000000000000000000000000000000000000000010000,
+        [ROOK] = 0b0000000000000000000000000000000000000000000000000000000010000001,
+        [KNIGHT] = 0b0000000000000000000000000000000000000000000000000000000001000010,
+        [BISHOP] = 0b0000000000000000000000000000000000000000000000000000000000100100,
+        [PAWN] = 0b0000000000000000000000000000000000000000000000001111111100000000,
     }
 };
 
 void updatePositionBitmap(BoardState* board_state) {
     board_state->black_positions = 
-        board_state->black.king | 
-        board_state->black.queens |
-        board_state->black.pawns | 
-        board_state->black.rooks |
-        board_state->black.bishops |
-        board_state->black.knights;
+        board_state->black[KING] | 
+        board_state->black[QUEEN] |
+        board_state->black[PAWN] | 
+        board_state->black[ROOK] |
+        board_state->black[BISHOP] |
+        board_state->black[KNIGHT];
 
     board_state->white_positions = 
-        board_state->white.king | 
-        board_state->white.queens |
-        board_state->white.pawns | 
-        board_state->white.rooks |
-        board_state->white.bishops |
-        board_state->white.knights;
+        board_state->white[KING] | 
+        board_state->white[QUEEN] |
+        board_state->white[PAWN] | 
+        board_state->white[ROOK] |
+        board_state->white[BISHOP] |
+        board_state->white[KNIGHT];
 }
 
 char* boardStateToArray(BoardState* board_state) {
@@ -65,19 +65,19 @@ char* boardStateToArray(BoardState* board_state) {
 
         uint64_t mask = 1ULL << (63 - i);
 
-        if (board_state->white.king & mask) { board[i] = 'K'; }
-        else if (board_state->white.queens & mask) { board[i] = 'Q'; }
-        else if (board_state->white.rooks & mask) { board[i] = 'R'; }
-        else if (board_state->white.knights & mask) { board[i] = 'N'; }
-        else if (board_state->white.bishops & mask) { board[i] = 'B'; }
-        else if (board_state->white.pawns & mask) { board[i] = 'P'; }
+        if (board_state->white[KING] & mask) { board[i] = 'K'; }
+        else if (board_state->white[QUEEN] & mask) { board[i] = 'Q'; }
+        else if (board_state->white[ROOK] & mask) { board[i] = 'R'; }
+        else if (board_state->white[KNIGHT] & mask) { board[i] = 'N'; }
+        else if (board_state->white[BISHOP] & mask) { board[i] = 'B'; }
+        else if (board_state->white[PAWN] & mask) { board[i] = 'P'; }
 
-        else if (board_state->black.king & mask) { board[i] = 'k'; }
-        else if (board_state->black.queens & mask) { board[i] = 'q'; }
-        else if (board_state->black.rooks & mask) { board[i] = 'r'; }
-        else if (board_state->black.knights & mask) { board[i] = 'n'; }
-        else if (board_state->black.bishops & mask) { board[i] = 'b'; }
-        else if (board_state->black.pawns & mask) { board[i] = 'p'; }
+        else if (board_state->black[KING] & mask) { board[i] = 'k'; }
+        else if (board_state->black[QUEEN] & mask) { board[i] = 'q'; }
+        else if (board_state->black[ROOK] & mask) { board[i] = 'r'; }
+        else if (board_state->black[KNIGHT] & mask) { board[i] = 'n'; }
+        else if (board_state->black[BISHOP] & mask) { board[i] = 'b'; }
+        else if (board_state->black[PAWN] & mask) { board[i] = 'p'; }
         else board[i] = '.';
     }
 

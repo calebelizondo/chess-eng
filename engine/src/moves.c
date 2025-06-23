@@ -11,7 +11,7 @@
 /*
     TODO: 
 
-    - Kings shouldn't be able to castle out of check 
+    - Kings shouldn't be able to castle out of check or if rook has previously moved
     - Pawns need to be able to promote
     - Pawns need to be able to en passante
 
@@ -61,17 +61,17 @@ MoveList getPsuedoLegalMoves(uint64_t piece_mask, const BoardState* const boardS
     moves.count = -1;
     
     //get all presumably valid moves
-    if ((boardState->white.pawns & piece_mask) || (boardState->black.pawns & piece_mask)) {
+    if ((boardState->white[PAWN] & piece_mask) || (boardState->black[PAWN] & piece_mask)) {
         moves = calc_pawn_moves(piece_mask, boardState);
-    } else if ((boardState->black.knights & piece_mask) || (boardState->white.knights & piece_mask)) {
+    } else if ((boardState->black[KNIGHT] & piece_mask) || (boardState->white[KNIGHT] & piece_mask)) {
         moves = calc_knight_moves(piece_mask, boardState);
-    } else if ((boardState->black.king & piece_mask) || (boardState->white.king & piece_mask)) {
+    } else if ((boardState->black[KING] & piece_mask) || (boardState->white[KING] & piece_mask)) {
         moves = calc_king_moves(piece_mask, boardState);
-    } else if ((boardState->black.bishops & piece_mask) || (boardState->white.bishops & piece_mask)) {
+    } else if ((boardState->black[BISHOP] & piece_mask) || (boardState->white[BISHOP] & piece_mask)) {
         moves = calc_bishop_moves(piece_mask, boardState);
-    } else if ((boardState->black.rooks & piece_mask) || (boardState->white.rooks & piece_mask)) {
+    } else if ((boardState->black[ROOK] & piece_mask) || (boardState->white[ROOK] & piece_mask)) {
         moves = calc_rook_moves(piece_mask, boardState);
-    } else if ((boardState->black.queens & piece_mask) || (boardState->white.queens & piece_mask)) {
+    } else if ((boardState->black[QUEEN] & piece_mask) || (boardState->white[QUEEN] & piece_mask)) {
         moves = calc_queen_moves(piece_mask, boardState);
     }    
 
@@ -81,7 +81,7 @@ MoveList getPsuedoLegalMoves(uint64_t piece_mask, const BoardState* const boardS
 bool isInCheck(TURN side, const BoardState* const boardState) {
 
     const uint64_t enemy_positions = (side == WHITE) ? boardState->black_positions : boardState->white_positions; 
-    const uint64_t friendly_king = (side == WHITE) ? boardState->white.king : boardState->black.king;
+    const uint64_t friendly_king = (side == WHITE) ? boardState->white[KING] : boardState->black[KING];
     const size_t enemy_piece_total = __builtin_popcountll(enemy_positions);
 
     for (size_t enemy_piece = 0; enemy_piece < enemy_piece_total; enemy_piece++) {
@@ -131,6 +131,10 @@ void removeCastleFlags(BoardState* boardState) {
     }
 }
 
+void resetEnPassantSquares(BoardState* boardState) {
+    boardState->valid_enpassant = 0;
+}
+
 
 /*
     TODO: properly handle flags (castle, promotion, en-passante)
@@ -145,81 +149,81 @@ void applyMove(Move move, BoardState* boardState) {
     //handle castle
     if (move.flags & FLAG_CASTLE_QUEENSIDE) {
         if (boardState->turn == WHITE) {
-            boardState->white.king = 1ULL << 5;
-            boardState->white.rooks &= ~(1ULL << 7);
-            boardState->white.rooks |= 1ULL << 4;
+            boardState->white[KING] = 1ULL << 5;
+            boardState->white[ROOK] &= ~(1ULL << 7);
+            boardState->white[ROOK] |= 1ULL << 4;
         } else {
-            boardState->black.king = 1ULL << 61;
-            boardState->black.rooks &= ~(1ULL << 63);
-            boardState->black.rooks |= 1ULL << 60;
+            boardState->black[KING] = 1ULL << 61;
+            boardState->black[ROOK] &= ~(1ULL << 63);
+            boardState->black[ROOK] |= 1ULL << 60;
         }
 
         removeCastleFlags(boardState);
     } else if (move.flags & FLAG_CASTLE_KINGSIDE) {
         if (boardState->turn == WHITE) {
-            boardState->white.king = (1ULL << 1);
-            boardState->white.rooks &= ~(1ULL << 0);
-            boardState->white.rooks |= 1ULL << 2;
+            boardState->white[KING] = (1ULL << 1);
+            boardState->white[ROOK] &= ~(1ULL << 0);
+            boardState->white[ROOK] |= 1ULL << 2;
         } else {
-            boardState->black.king = 1ULL << 57;
-            boardState->black.rooks &= ~(1ULL << 56); 
-            boardState->black.rooks |= (1ULL << 58);
+            boardState->black[KING] = 1ULL << 57;
+            boardState->black[ROOK] &= ~(1ULL << 56); 
+            boardState->black[ROOK] |= (1ULL << 58);
         }
         removeCastleFlags(boardState);
     } //general case, turn = WHITE
     else if (boardState->turn == WHITE) {
 
         //move friendly piece
-        if ((boardState->white.king & from_mask) != 0) {
+        if ((boardState->white[KING] & from_mask) != 0) {
             removeCastleFlags(boardState);
-            boardState->white.king |= to_mask;
+            boardState->white[KING] |= to_mask;
         }
-        if ((boardState->white.queens & from_mask) != 0) boardState->white.queens |= to_mask;
-        if ((boardState->white.rooks & from_mask) != 0) boardState->white.rooks |= to_mask;
-        if ((boardState->white.bishops & from_mask) != 0) boardState->white.bishops |= to_mask;
-        if ((boardState->white.knights & from_mask) != 0) boardState->white.knights |= to_mask;
-        if ((boardState->white.pawns & from_mask) != 0) boardState->white.pawns |= to_mask;
+        if ((boardState->white[QUEEN] & from_mask) != 0) boardState->white[QUEEN] |= to_mask;
+        if ((boardState->white[ROOK] & from_mask) != 0) boardState->white[ROOK] |= to_mask;
+        if ((boardState->white[BISHOP] & from_mask) != 0) boardState->white[BISHOP] |= to_mask;
+        if ((boardState->white[KNIGHT] & from_mask) != 0) boardState->white[KNIGHT] |= to_mask;
+        if ((boardState->white[PAWN] & from_mask) != 0) boardState->white[PAWN] |= to_mask;
 
-        boardState->white.king &= ~from_mask;
-        boardState->white.queens &= ~from_mask;
-        boardState->white.rooks &= ~from_mask;
-        boardState->white.bishops &= ~from_mask;
-        boardState->white.knights &= ~from_mask;
-        boardState->white.pawns &= ~from_mask;
+        boardState->white[KING] &= ~from_mask;
+        boardState->white[QUEEN] &= ~from_mask;
+        boardState->white[ROOK] &= ~from_mask;
+        boardState->white[BISHOP] &= ~from_mask;
+        boardState->white[KNIGHT] &= ~from_mask;
+        boardState->white[PAWN] &= ~from_mask;
 
 
-        boardState->black.king &= ~to_mask;
-        boardState->black.queens &= ~to_mask;
-        boardState->black.rooks &= ~to_mask;
-        boardState->black.bishops &= ~to_mask;
-        boardState->black.knights &= ~to_mask;
-        boardState->black.pawns &= ~to_mask;
+        boardState->black[KING] &= ~to_mask;
+        boardState->black[QUEEN] &= ~to_mask;
+        boardState->black[ROOK] &= ~to_mask;
+        boardState->black[BISHOP] &= ~to_mask;
+        boardState->black[KNIGHT] &= ~to_mask;
+        boardState->black[PAWN] &= ~to_mask;
     } else {
 
-        if ((boardState->black.king & from_mask) != 0) {
+        if ((boardState->black[KING] & from_mask) != 0) {
             removeCastleFlags(boardState);
-            boardState->black.king |= to_mask;
+            boardState->black[KING] |= to_mask;
         }
-        if ((boardState->black.queens & from_mask) != 0) boardState->black.queens |= to_mask;
-        if ((boardState->black.rooks & from_mask) != 0) boardState->black.rooks |= to_mask;
-        if ((boardState->black.bishops & from_mask) != 0) boardState->black.bishops |= to_mask;
-        if ((boardState->black.knights & from_mask) != 0) boardState->black.knights |= to_mask;
-        if ((boardState->black.pawns & from_mask) != 0) boardState->black.pawns |= to_mask;
+        if ((boardState->black[QUEEN] & from_mask) != 0) boardState->black[QUEEN] |= to_mask;
+        if ((boardState->black[ROOK] & from_mask) != 0) boardState->black[ROOK] |= to_mask;
+        if ((boardState->black[BISHOP] & from_mask) != 0) boardState->black[BISHOP] |= to_mask;
+        if ((boardState->black[KNIGHT] & from_mask) != 0) boardState->black[KNIGHT] |= to_mask;
+        if ((boardState->black[PAWN] & from_mask) != 0) boardState->black[PAWN] |= to_mask;
 
-        boardState->black.king &= ~from_mask;
-        boardState->black.queens &= ~from_mask;
-        boardState->black.rooks &= ~from_mask;
-        boardState->black.bishops &= ~from_mask;
-        boardState->black.knights &= ~from_mask;
-        boardState->black.pawns &= ~from_mask;
+        boardState->black[KING] &= ~from_mask;
+        boardState->black[QUEEN] &= ~from_mask;
+        boardState->black[ROOK] &= ~from_mask;
+        boardState->black[BISHOP] &= ~from_mask;
+        boardState->black[KNIGHT] &= ~from_mask;
+        boardState->black[PAWN] &= ~from_mask;
 
 
-        boardState->white.king &= ~to_mask;
-        boardState->white.queens &= ~to_mask;
-        boardState->white.rooks &= ~to_mask;
-        boardState->white.bishops &= ~to_mask;
-        boardState->white.knights &= ~to_mask;
-        boardState->white.pawns &= ~to_mask;
+        boardState->white[KING] &= ~to_mask;
+        boardState->white[QUEEN] &= ~to_mask;
+        boardState->white[ROOK] &= ~to_mask;
+        boardState->white[BISHOP] &= ~to_mask;
+        boardState->white[KNIGHT] &= ~to_mask;
+        boardState->white[PAWN] &= ~to_mask;
 
     }
 

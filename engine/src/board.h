@@ -1,17 +1,15 @@
-#include <stdint.h>
-#include <stdbool.h>
 
 #ifndef BOARD_H
 #define BOARD_H
 
-struct PiecePositions {
-    int64_t king;
-    int64_t queens;
-    int64_t rooks;
-    int64_t knights;
-    int64_t bishops;
-    int64_t pawns;
-};
+#include <stdint.h>
+#include <stdbool.h>
+
+
+typedef enum {
+    PAWN, KING, QUEEN, BISHOP, KNIGHT, ROOK,
+    PIECE_TYPE_COUNT
+} PieceType;
 
 typedef enum { WHITE, BLACK } TURN;
 
@@ -30,8 +28,8 @@ typedef enum {
 
 typedef struct {
     TURN turn;
-    struct PiecePositions black;
-    struct PiecePositions white;
+    uint64_t black[PIECE_TYPE_COUNT];
+    uint64_t white[PIECE_TYPE_COUNT];
     uint64_t black_positions;
     uint64_t white_positions;
     CanCastle can_castle;

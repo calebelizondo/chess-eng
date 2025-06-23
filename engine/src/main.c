@@ -7,11 +7,14 @@
 #include <assert.h>
 #include <string.h>
 #include "opponent.h"
+#include "trans_table.h"
 
 BoardState* current_board_state = NULL;
 MoveList* available_moves = NULL;
 
 int main() {
+
+    initTransTable();
 
     current_board_state = malloc(sizeof(STARTING_BOARD_STATE));
     updatePositionBitmap(current_board_state);
