@@ -58,7 +58,7 @@ MoveList getAllValidMoves(const BoardState* const boardState) {
 MoveList getPsuedoLegalMoves(uint64_t piece_mask, const BoardState* const boardState) {
 
     MoveList moves;
-    moves.count = -1;
+    moves.count = 0;
     
     //get all presumably valid moves
     if ((boardState->white[PAWN] & piece_mask) || (boardState->black[PAWN] & piece_mask)) {
@@ -272,7 +272,7 @@ MoveList calc_king_moves(uint64_t position, const BoardState* const boardState) 
     const uint64_t move_bitmap = candidate_positions;
 
     MoveList moves;
-    moves.count =  __builtin_popcountll(candidate_positions);
+    moves.count = (candidate_positions != 0) ? __builtin_popcountll(candidate_positions) : 0;
 
     for (size_t i = 0; i < moves.count; i++) {
         uint64_t new_position = extract_nth_set_bit(move_bitmap, i);
@@ -343,7 +343,7 @@ MoveList calc_bishop_moves(uint64_t position, const BoardState* const boardState
     const uint64_t move_bitmap = candidate_positions;
 
     MoveList moves;
-    moves.count =  __builtin_popcountll(candidate_positions);
+    moves.count = (candidate_positions != 0) ? __builtin_popcountll(candidate_positions) : 0;
 
     for (size_t i = 0; i < moves.count; i++) {
         uint64_t new_position = extract_nth_set_bit(move_bitmap, i);
@@ -401,7 +401,7 @@ MoveList calc_rook_moves(uint64_t position, const BoardState* const boardState) 
     const uint64_t move_bitmap = candidate_positions;
 
     MoveList moves;
-    moves.count =  __builtin_popcountll(candidate_positions);
+    moves.count =  (candidate_positions != 0) ? __builtin_popcountll(candidate_positions) : 0;
 
     for (size_t i = 0; i < moves.count; i++) {
         uint64_t new_position = extract_nth_set_bit(move_bitmap, i);
@@ -472,7 +472,7 @@ MoveList calc_knight_moves(uint64_t position, const BoardState* const boardState
     const uint64_t move_bitmap = candidate_positions;
 
     MoveList moves;
-    moves.count =  __builtin_popcountll(candidate_positions);
+    moves.count =  (candidate_positions != 0) ? __builtin_popcountll(candidate_positions) : 0;
 
     for (size_t i = 0; i < moves.count; i++) {
         uint64_t new_position = extract_nth_set_bit(move_bitmap, i);
@@ -530,7 +530,7 @@ MoveList calc_pawn_moves(uint64_t position, const BoardState* const boardState) 
     const uint64_t move_bitmap = candidate_positions;
 
     MoveList moves;
-    moves.count =  __builtin_popcountll(candidate_positions);
+    moves.count = (candidate_positions != 0) ? __builtin_popcountll(candidate_positions) : 0;
 
     for (size_t i = 0; i < moves.count; i++) {
         uint64_t new_position = extract_nth_set_bit(move_bitmap, i);

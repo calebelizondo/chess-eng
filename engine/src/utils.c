@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 
 void printBinary(uint64_t num) {
@@ -20,6 +21,7 @@ void printBinary(uint64_t num) {
 }
 
 uint64_t extract_nth_set_bit(uint64_t bitboard, int n) {
+    assert(__builtin_popcountll(bitboard) > n);
     for (int i = 0; i < 64; i++) {
         if ((bitboard >> i) & 1) {
             if (n == 0) return 1ULL << i;

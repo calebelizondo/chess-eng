@@ -45,12 +45,12 @@ class Engine {
     }
 
     this.isPlayerInCheck = () => {
-      console.log("player in check?", getPlayerInCheck());
+      // console.log("player in check?", getPlayerInCheck());
       return getPlayerInCheck();
     }
 
     this.isEnemyInCheck = () => {
-      console.log("enemy in check?", getEnemyInCheck());
+      // console.log("enemy in check?", getEnemyInCheck());
       return getEnemyInCheck();
     }
 

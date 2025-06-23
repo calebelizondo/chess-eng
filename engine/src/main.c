@@ -14,7 +14,7 @@ MoveList* available_moves = NULL;
 
 int main() {
 
-    initTransTable();
+    //initTransTable();
 
     current_board_state = malloc(sizeof(STARTING_BOARD_STATE));
     updatePositionBitmap(current_board_state);
@@ -46,7 +46,7 @@ char* getCurrentBoardState() {
 
 EMSCRIPTEN_KEEPALIVE
 char* movePiece(char* from, char* to, bool isCastle, bool isEnpassant, bool isPromotion, char* promoteTo) {
-
+    printf("moving piece...");
     assert(available_moves != NULL);
 
     //find the move that matches our to, from move
@@ -67,7 +67,7 @@ char* movePiece(char* from, char* to, bool isCastle, bool isEnpassant, bool isPr
     free(available_moves);
     available_moves = NULL;
 
-    // makeOpponentMove(current_board_state);
+    makeOpponentMove(current_board_state);
 
     return getCurrentBoardState();
 }

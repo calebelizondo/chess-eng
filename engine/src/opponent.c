@@ -6,6 +6,10 @@
 #import "moves.h"
 #include <math.h>
 #include <string.h>
+#include <limits.h>
+#include "trans_table.h"
+
+#define SEARCH_DEPTH 4
 
 typedef struct {
     BoardState* state;
@@ -15,9 +19,9 @@ typedef struct {
 
 //positive score = White up material
 //negative score = Black up material
-double scorePosition(BoardState* boardState) {
-    double white_score = 0;
-    double black_score = 0;
+int scorePosition(BoardState* boardState) {
+    int white_score = 0;
+    int black_score = 0;
 
 
     white_score += __builtin_popcountll(boardState->white[KING]) * 50;
@@ -34,69 +38,87 @@ double scorePosition(BoardState* boardState) {
     black_score += __builtin_popcountll(boardState->black[BISHOP]) * 3;
     black_score += __builtin_popcountll(boardState->black[PAWN]);
 
-    return white_score - black_score;
+    int material_diff = white_score - black_score;
+    
+    return (boardState->turn == WHITE) ? material_diff : -material_diff;
 }
 
 
-void getOptimalMove(BoardState* boardState, size_t maxDepth) {
+int negamax(BoardState* state, size_t depth, int alpha, int beta) {
 
-
-    // if (maxDepth == 0) {
-    //     EngineMove tree_end;
-    //     tree_end.state = malloc(sizeof(BoardState));
-    //     memcpy(tree_end.state, boardState, sizeof(BoardState));
-    //     tree_end.score = 0;
-    //     return tree_end;
+    TEntry entry;
+    bool found = read(state, &entry);
+    // if (found && entry.depth >= depth) {
+    //     return entry.score;
     // }
-    
-    // //no available moves, this is checkmate!
-    // Moves all_moves = getAllValidMoves(boardState);
-    // if (all_moves.count == 0) {
-    //     EngineMove checkmate;
-    //     checkmate.state=boardState;
-    //     checkmate.score=(boardState->turn == WHITE) ? 100 : -100;
+    // if (found) {
+    //     printf("found score:");
+    //     printf("%d\n", entry.score);
     // }
 
+    if (depth == 0) {
+        int score = scorePosition(state);
+        write(state, depth, score);
+        return score;
+    }
 
-    // BoardState* optimalState;
-    // //if opponent is black, invert score
-    // int score_multiple = (boardState->turn == WHITE) ? -1 : 1;
-    // double smallest_response_score = INFINITY;
-    
+    BoardState saved_state = *state;
+    MoveList moves = getAllValidMoves(state); 
+    if (moves.count <= 0) {
+        int score = -50;
+        write(state, depth, score);
+        return score; //checkmate!!
+    }
 
-    // //find the move that for which the best response has the smallest score
-    // for (size_t move = 0; move < all_moves.count; move++) {
+    int max_score = INT_MIN;
 
-    //     const EngineMove response = getOptimalMove(&all_moves.boards[move], maxDepth - 1);
-    //     const BoardState* responseState = response.state;
-    //     const double side_corrected_score = response.score * score_multiple;
+    for (size_t move = 0; move < moves.count; move++) {
+        applyMove(moves.moves[move], state);
 
-    //     if (smallest_response_score > side_corrected_score) {
-    //         smallest_response_score = side_corrected_score;
-    //         optimalState = &all_moves.boards[move];
-    //     }
+        //printBoard(state);
 
-    //     free(responseState);
-    // }
+        int score = -negamax(state, depth - 1, -beta, -alpha);
+        max_score = (score > max_score) ? score : max_score;
+        alpha = (alpha > score) ? alpha : score;
 
-    // EngineMove optimalMove;
-    
-    // optimalMove.state = malloc(sizeof(BoardState));
-    // optimalMove.score = scorePosition(optimalMove.state) - smallest_response_score;
-    // memcpy(optimalMove.state, optimalState, sizeof(BoardState));
+        //restore state
+        *state = saved_state;
 
-    // free(all_moves.boards);
+        if (alpha >= beta) break;
+    }
 
-    // return optimalMove;
+
+    write(state, depth, max_score);
+    return max_score;
+
+}
+
+Move getOptimalMove(BoardState* boardState, int depth) {
+    MoveList moves = getAllValidMoves(boardState);
+    Move best;
+    int best_score = INT_MIN;
+
+    for (size_t i = 0; i < moves.count; ++i) {
+        BoardState copy = *boardState;
+        applyMove(moves.moves[i], &copy);
+
+        int score = -negamax(&copy, depth - 1, INT_MIN + 1, INT_MAX - 1);
+
+        if (score > best_score) {
+            best_score = score;
+            best = moves.moves[i];
+        }
+
+        // printf("%d\n", score);
+        // printBoard(&copy);
+    }
+
+    return best;
 }
 
 void makeOpponentMove(BoardState* boardState) {
-    // assert(boardState->turn == BLACK);
-    // *boardState = *getOptimalMove(boardState, 4).state;
+    assert(boardState->turn == BLACK);
+
+    Move move = getOptimalMove(boardState, SEARCH_DEPTH);
+    applyMove(move, boardState);
 }
-
-
-// void makeOpponentMove(BoardState* boardState, size_t maxDepth ) {
-//     assert(boardState->turn == BLACK);
-
-// }
