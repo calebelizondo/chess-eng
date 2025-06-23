@@ -5,5 +5,5 @@ make clean
 make
 
 cd ../interface
+npm install
 npm run build
-cp ../ /build
