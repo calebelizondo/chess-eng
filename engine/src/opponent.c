@@ -9,13 +9,8 @@
 #include <limits.h>
 #include "trans_table.h"
 
-#define SEARCH_DEPTH 4
-
-typedef struct {
-    BoardState* state;
-    double score;
-} EngineMove;
-
+#define SEARCH_DEPTH 5
+#define USE_TRANS_TABLE true
 
 //positive score = White up material
 //negative score = Black up material
@@ -24,19 +19,19 @@ int scorePosition(BoardState* boardState) {
     int black_score = 0;
 
 
-    white_score += __builtin_popcountll(boardState->white[KING]) * 50;
-    white_score += __builtin_popcountll(boardState->white[QUEEN]) * 8;
-    white_score += __builtin_popcountll(boardState->white[ROOK]) * 5;
-    white_score += __builtin_popcountll(boardState->white[KNIGHT]) * 3;
-    white_score += __builtin_popcountll(boardState->white[BISHOP]) * 3;
-    white_score += __builtin_popcountll(boardState->white[PAWN]);
+    white_score += __builtin_popcountll(boardState->p_positions[WHITE][KING]) * 50;
+    white_score += __builtin_popcountll(boardState->p_positions[WHITE][QUEEN]) * 8;
+    white_score += __builtin_popcountll(boardState->p_positions[WHITE][ROOK]) * 5;
+    white_score += __builtin_popcountll(boardState->p_positions[WHITE][KNIGHT]) * 3;
+    white_score += __builtin_popcountll(boardState->p_positions[WHITE][BISHOP]) * 3;
+    white_score += __builtin_popcountll(boardState->p_positions[WHITE][PAWN]);
 
-    black_score += __builtin_popcountll(boardState->black[KING]) * 50;
-    black_score += __builtin_popcountll(boardState->black[QUEEN]) * 8;
-    black_score += __builtin_popcountll(boardState->black[ROOK]) * 5;
-    black_score += __builtin_popcountll(boardState->black[KNIGHT]) * 3;
-    black_score += __builtin_popcountll(boardState->black[BISHOP]) * 3;
-    black_score += __builtin_popcountll(boardState->black[PAWN]);
+    black_score += __builtin_popcountll(boardState->p_positions[BLACK][KING]) * 50;
+    black_score += __builtin_popcountll(boardState->p_positions[BLACK][QUEEN]) * 8;
+    black_score += __builtin_popcountll(boardState->p_positions[BLACK][ROOK]) * 5;
+    black_score += __builtin_popcountll(boardState->p_positions[BLACK][KNIGHT]) * 3;
+    black_score += __builtin_popcountll(boardState->p_positions[BLACK][BISHOP]) * 3;
+    black_score += __builtin_popcountll(boardState->p_positions[BLACK][PAWN]);
 
     int material_diff = white_score - black_score;
     
@@ -46,27 +41,27 @@ int scorePosition(BoardState* boardState) {
 
 int negamax(BoardState* state, size_t depth, int alpha, int beta) {
 
-    TEntry entry;
-    bool found = read(state, &entry);
-    // if (found && entry.depth >= depth) {
-    //     return entry.score;
-    // }
-    // if (found) {
-    //     printf("found score:");
-    //     printf("%d\n", entry.score);
-    // }
+    if (USE_TRANS_TABLE) {
+        TEntry entry;
+        bool found = read(state, &entry);
+        if (found && entry.depth >= depth) {
+            return entry.score;
+        }
+    }
 
     if (depth == 0) {
         int score = scorePosition(state);
-        write(state, depth, score);
+        if (USE_TRANS_TABLE) write(state, depth, score);
         return score;
     }
 
     BoardState saved_state = *state;
-    MoveList moves = getAllValidMoves(state); 
+    MoveList moves;
+    moves.count = 0;
+    getAllValidMoves(state, &moves); 
     if (moves.count <= 0) {
         int score = -50;
-        write(state, depth, score);
+        if (USE_TRANS_TABLE) write(state, depth, score);
         return score; //checkmate!!
     }
 
@@ -88,13 +83,15 @@ int negamax(BoardState* state, size_t depth, int alpha, int beta) {
     }
 
 
-    write(state, depth, max_score);
+    if (USE_TRANS_TABLE) write(state, depth, max_score);
     return max_score;
 
 }
 
 Move getOptimalMove(BoardState* boardState, int depth) {
-    MoveList moves = getAllValidMoves(boardState);
+    MoveList moves;
+    moves.count = 0;
+    getAllValidMoves(boardState, &moves);
     Move best;
     int best_score = INT_MIN;
 

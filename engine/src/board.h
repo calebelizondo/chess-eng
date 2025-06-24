@@ -11,7 +11,7 @@ typedef enum {
     PIECE_TYPE_COUNT
 } PieceType;
 
-typedef enum { WHITE, BLACK } TURN;
+typedef enum { WHITE = 0, BLACK = 1, SIDE_COUNT} SIDE;
 
 typedef struct {
     char file;
@@ -27,11 +27,9 @@ typedef enum {
 } CanCastle;
 
 typedef struct {
-    TURN turn;
-    uint64_t black[PIECE_TYPE_COUNT];
-    uint64_t white[PIECE_TYPE_COUNT];
-    uint64_t black_positions;
-    uint64_t white_positions;
+    SIDE turn;
+    uint64_t p_positions[SIDE_COUNT][PIECE_TYPE_COUNT];
+    uint64_t positions[SIDE_COUNT];
     CanCastle can_castle;
     uint64_t valid_enpassant;
     uint64_t last_move;
@@ -54,5 +52,6 @@ extern char* boardStateToArray(BoardState* board_state);
 extern char* moveBitmapToString(uint64_t position);
 extern uint64_t stringPositionToBitmap(const char* str);
 extern void updatePositionBitmap(BoardState* board_state);
+extern PieceType getPieceType(uint64_t piece_mask, const BoardState* const boardState);
 
 #endif

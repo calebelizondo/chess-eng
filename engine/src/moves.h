@@ -32,10 +32,10 @@ typedef struct {
     size_t count;
 } MoveList;
 
-extern MoveList getAllValidMoves(const BoardState* const boardState);
+extern void getAllValidMoves(const BoardState* const boardState, MoveList* buffer);
 extern void applyMove(Move move, BoardState* boardState);
-extern bool isInCheck(TURN side, const BoardState* const boardState);
-extern MoveList getValidMoves(uint64_t piece_mask, const BoardState* const boardState);
+extern bool isInCheck(SIDE side, const BoardState* const boardState);
+extern void getValidMoves(uint64_t piece_mask, const BoardState* const boardState, MoveList* buffer);
 extern void printBinary(uint64_t num);
 
 #endif

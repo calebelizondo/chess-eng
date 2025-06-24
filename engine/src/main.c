@@ -14,16 +14,18 @@ MoveList* available_moves = NULL;
 
 int main() {
 
-    //initTransTable();
+    initTransTable();
 
     current_board_state = malloc(sizeof(STARTING_BOARD_STATE));
+    available_moves = malloc(sizeof(MoveList));
     updatePositionBitmap(current_board_state);
 
-    if (current_board_state == NULL) {
+    if (current_board_state == NULL || available_moves == NULL) {
         return -1;
     }
 
     *current_board_state = STARTING_BOARD_STATE;
+    available_moves->count = 0;
     
     return 0;
 }
@@ -46,7 +48,6 @@ char* getCurrentBoardState() {
 
 EMSCRIPTEN_KEEPALIVE
 char* movePiece(char* from, char* to, bool isCastle, bool isEnpassant, bool isPromotion, char* promoteTo) {
-    printf("moving piece...");
     assert(available_moves != NULL);
 
     //find the move that matches our to, from move
@@ -64,8 +65,7 @@ char* movePiece(char* from, char* to, bool isCastle, bool isEnpassant, bool isPr
     }
 
     assert(move_found);
-    free(available_moves);
-    available_moves = NULL;
+    available_moves->count = 0;
 
     makeOpponentMove(current_board_state);
 
@@ -74,21 +74,15 @@ char* movePiece(char* from, char* to, bool isCastle, bool isEnpassant, bool isPr
 
 EMSCRIPTEN_KEEPALIVE
 char* getValidPieceMoves(char* piece) {
+
     current_board_state->turn = WHITE;
     updatePositionBitmap(current_board_state);
-
-    if (available_moves == NULL) {
-        available_moves = malloc(sizeof(MoveList));
-        assert(available_moves != NULL);
-    }
-
-    MoveList moves = getValidMoves(stringPositionToBitmap(piece), current_board_state);
-    available_moves->count = moves.count;
+    available_moves->count = 0;
+    getValidMoves(stringPositionToBitmap(piece), current_board_state, available_moves);
 
     uint64_t moves_bitmap = 0;
-    for (size_t i = 0; i < moves.count; i++) {
-        available_moves->moves[i] = moves.moves[i];
-        moves_bitmap |= moves.moves[i].to;
+    for (size_t i = 0; i < available_moves->count; i++) {
+        moves_bitmap |= available_moves->moves[i].to;
     }
 
     return moveBitmapToString(moves_bitmap);

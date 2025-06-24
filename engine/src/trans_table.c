@@ -6,7 +6,7 @@
 #include "trans_table.h"
 #include <stdio.h>
 
-#define TABLE_SIZE (1024 * 1024) 
+#define TABLE_SIZE ((1024 * 1024) /2)
 #define ZORBIST_SEED 42
 #define ZORBIST_SIZE ((PIECE_TYPE_COUNT * 2) + 3)
 
@@ -17,8 +17,9 @@ uint64_t zobrist_table[ZORBIST_SIZE][64];
 void initZorbistTable() {
     srand(ZORBIST_SEED);
     for (int piece = 0; piece < ZORBIST_SIZE; ++piece)
-        for (int square = 0; square < 64; ++square)
+        for (int square = 0; square < 64; ++square) {
             zobrist_table[piece][square] = ((uint64_t)rand() << 32) | rand();
+        }
 }
 
 void initTransTable() {
@@ -33,7 +34,7 @@ uint64_t hash(const BoardState* const boardState) {
 
     //hash white pieces
     for (size_t i = 0; i < PIECE_TYPE_COUNT; i++) {
-        uint64_t bb = boardState->white[i];
+        uint64_t bb = boardState->p_positions[WHITE][i];
         while (bb) {
             int sq = __builtin_ctzll(bb);
             h ^= zobrist_table[i][sq];
@@ -43,7 +44,7 @@ uint64_t hash(const BoardState* const boardState) {
 
     //hash black pieces
     for (size_t i = PIECE_TYPE_COUNT; i < PIECE_TYPE_COUNT * 2; i++) {
-        uint64_t bb = boardState->black[i - PIECE_TYPE_COUNT];
+        uint64_t bb = boardState->p_positions[BLACK][i - PIECE_TYPE_COUNT];
         while (bb) {
             int sq = __builtin_ctzll(bb);
             h ^= zobrist_table[i][sq];
@@ -70,7 +71,6 @@ uint64_t hash(const BoardState* const boardState) {
     //hash turn
     int turn = boardState->turn;
     h ^= zobrist_table[(PIECE_TYPE_COUNT * 2) + 2][turn];
-
     
     return h;
 }
@@ -80,6 +80,8 @@ bool read(const BoardState* const boardState, TEntry* buffer) {
     uint64_t index = zhash % (uint64_t) TABLE_SIZE;
 
     if (trans_table[index].key == zhash) {
+
+        printf("found!");
         *buffer = trans_table[index];
         return true;
     }
