@@ -389,6 +389,7 @@ uint64_t bishop_bitmap(uint64_t position, const BoardState* const boardState, SI
     for (size_t dir = 0; dir < 4; dir++) {
         for (size_t i = 0; i < 8; i++) {
             uint64_t possible_move = BISHOP_MOVE_MAP[square][dir][i];
+            if (possible_move == 0) break;
             if (possible_move & friendly_positions) break;
             candidate_positions |= BISHOP_MOVE_MAP[square][dir][i];
             if (possible_move & enemy_positions) break;     
@@ -422,6 +423,7 @@ uint64_t rook_bitmap(uint64_t position, const BoardState* const boardState, SIDE
     for (size_t dir = 0; dir < 4; dir++) {
         for (size_t i = 0; i < 8; i++) {
             uint64_t possible_move = ROOK_MOVE_MAP[square][dir][i];
+            if (possible_move == 0) break;
             if (possible_move & friendly_positions) break;
             candidate_positions |= ROOK_MOVE_MAP[square][dir][i];
             if (possible_move & enemy_positions) break;     
