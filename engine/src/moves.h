@@ -37,5 +37,6 @@ extern void applyMove(Move move, BoardState* boardState);
 extern bool isInCheck(SIDE side, const BoardState* const boardState);
 extern void getValidMoves(uint64_t piece_mask, const BoardState* const boardState, MoveList* buffer);
 extern void printBinary(uint64_t num);
+extern void initMoveMaps();
 
 #endif

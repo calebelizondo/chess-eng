@@ -20,12 +20,14 @@ int main() {
     available_moves = malloc(sizeof(MoveList));
     updatePositionBitmap(current_board_state);
 
+
     if (current_board_state == NULL || available_moves == NULL) {
         return -1;
     }
 
     *current_board_state = STARTING_BOARD_STATE;
     available_moves->count = 0;
+    initMoveMaps();
     
     return 0;
 }

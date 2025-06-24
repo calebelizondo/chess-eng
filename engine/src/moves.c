@@ -17,6 +17,20 @@
 
 */
 
+/*
+    index 0: position on board
+    index 1: direction (up, down etc)
+    index 2: possible new position (or 0 if no more)
+*/
+uint64_t ROOK_MOVE_MAP[64][4][8];
+uint64_t BISHOP_MOVE_MAP[64][4][8];
+
+
+/*
+    index 0: position on board
+    index 1: possible new position (or 0 if no more)
+*/
+uint64_t KNIGHT_MOVE_MAP[64][8];
 
 void calc_pawn_moves(uint64_t position, const BoardState* const boardState, MoveList* buffer);
 void calc_king_moves(uint64_t position, const BoardState* const boardState, MoveList* buffer);
@@ -41,6 +55,81 @@ PseudoLegalMoveGenerator psuedoMoveGenerator[PIECE_TYPE_COUNT] = {
     [QUEEN] = calc_queen_moves,
     [KING]  = calc_king_moves
 };
+
+void initMoveMaps() {
+
+    //init rook map
+    for (size_t i = 0; i < 64; i++) {
+        uint64_t position = 1ULL << i;
+        //used to prevent wrap-around
+        uint64_t row_mask = 0xFFULL << (8 * (i / 8));
+        for (size_t up = 0; up < 8; up++) ROOK_MOVE_MAP[i][0][up] = position << (8 * (up + 1));
+        for (size_t down = 0; down < 8; down++) ROOK_MOVE_MAP[i][1][down] = position >> (8 * (down + 1));
+        for (size_t left = 0; left < 8; left++) ROOK_MOVE_MAP[i][2][left] = (position << (1 * (left + 1))) & row_mask;
+        for (size_t right = 0; right < 8; right++) ROOK_MOVE_MAP[i][3][right] = (position >> (1 * (right + 1))) & row_mask;
+    }
+
+    //init bishop map
+    for (int i = 0; i < 64; i++) {
+        int row = i / 8;
+        int col = i % 8;
+        int step = 0;
+
+        for (int r = row - 1, c = col - 1; r >= 0 && c >= 0; r--, c--) {
+            BISHOP_MOVE_MAP[i][0][step++] = 1ULL << (r * 8 + c);
+        }
+        while (step < 8) BISHOP_MOVE_MAP[i][0][step++] = 0;
+
+        step = 0;
+        for (int r = row - 1, c = col + 1; r >= 0 && c < 8; r--, c++) {
+            BISHOP_MOVE_MAP[i][1][step++] = 1ULL << (r * 8 + c);
+        }
+        while (step < 8) BISHOP_MOVE_MAP[i][1][step++] = 0;
+
+        step = 0;
+        for (int r = row + 1, c = col - 1; r < 8 && c >= 0; r++, c--) {
+            BISHOP_MOVE_MAP[i][2][step++] = 1ULL << (r * 8 + c);
+        }
+        while (step < 8) BISHOP_MOVE_MAP[i][2][step++] = 0;
+
+        step = 0;
+        for (int r = row + 1, c = col + 1; r < 8 && c < 8; r++, c++) {
+            BISHOP_MOVE_MAP[i][3][step++] = 1ULL << (r * 8 + c);
+        }
+        while (step < 8) BISHOP_MOVE_MAP[i][3][step++] = 0;
+    }
+
+    //init knight map
+    uint64_t position_map = 1;
+    for (size_t i = 0; i < 64; i++) {
+
+        uint64_t position = 1ULL << i;
+        char file = bitmapToPosition(position).file;
+        for (size_t move = 0; move < 8; move++) KNIGHT_MOVE_MAP[i][move] = 0;
+        
+        if (file > 'a') {
+            KNIGHT_MOVE_MAP[i][0] = position >> 15;
+            KNIGHT_MOVE_MAP[i][1] = position << 17;
+        }
+
+        if (file > 'b') {
+            KNIGHT_MOVE_MAP[i][2] = position << 10;
+            KNIGHT_MOVE_MAP[i][3] = position >> 6;
+        }
+
+        if (file < 'g') {
+            KNIGHT_MOVE_MAP[i][4] = position << 6;
+            KNIGHT_MOVE_MAP[i][5] = position >> 10;
+
+        }
+
+        if (file < 'h') {
+            KNIGHT_MOVE_MAP[i][6] = position << 15;
+            KNIGHT_MOVE_MAP[i][7] = position >> 17;
+        }
+    }
+
+}
 
 void getAllValidMoves(const BoardState* const boardState, MoveList* buffer) {
     buffer->count = 0;
@@ -106,6 +195,11 @@ void getValidMoves(uint64_t piece_mask, const BoardState* const boardState, Move
     for (size_t possible_move = psuedoMovePointer; possible_move < buffer->count; possible_move++) {
         applied_move = *boardState;
         applyMove(buffer->moves[possible_move], &applied_move);
+        // const uint64_t friendly_king = applied_move.p_positions[boardState->turn][KING];
+        // if (friendly_king == 0) {
+        //     printBoard(&applied_move);
+        // }
+
         bool move_is_legal = !isInCheck(boardState->turn, &applied_move);
         if (move_is_legal) {
             buffer->moves[psuedoMovePointer] = buffer->moves[possible_move];
@@ -142,9 +236,39 @@ void applyMove(Move move, BoardState* boardState) {
 
     uint64_t from_mask = move.from;
     uint64_t to_mask = move.to;
+    bool side = boardState->turn;
+    bool other_side = boardState->turn ^ 1;
+
+    if (move.flags == FLAG_NONE || move.flags == FLAG_CAPTURE) {
+        //move friendly piece
+        if ((boardState->p_positions[side][KING] & from_mask) != 0) {
+            removeCastleFlags(boardState);
+            boardState->p_positions[side][KING] |= to_mask;
+        }
+        if ((boardState->p_positions[side][QUEEN] & from_mask) != 0) boardState->p_positions[side][QUEEN] |= to_mask;
+        if ((boardState->p_positions[side][ROOK] & from_mask) != 0) boardState->p_positions[side][ROOK] |= to_mask;
+        if ((boardState->p_positions[side][BISHOP] & from_mask) != 0) boardState->p_positions[side][BISHOP] |= to_mask;
+        if ((boardState->p_positions[side][KNIGHT] & from_mask) != 0) boardState->p_positions[side][KNIGHT] |= to_mask;
+        if ((boardState->p_positions[side][PAWN] & from_mask) != 0) boardState->p_positions[side][PAWN] |= to_mask;
+
+        boardState->p_positions[side][KING] &= ~from_mask;
+        boardState->p_positions[side][QUEEN] &= ~from_mask;
+        boardState->p_positions[side][ROOK] &= ~from_mask;
+        boardState->p_positions[side][BISHOP] &= ~from_mask;
+        boardState->p_positions[side][KNIGHT] &= ~from_mask;
+        boardState->p_positions[side][PAWN] &= ~from_mask;
+
+
+        boardState->p_positions[other_side][KING] &= ~to_mask;
+        boardState->p_positions[other_side][QUEEN] &= ~to_mask;
+        boardState->p_positions[other_side][ROOK] &= ~to_mask;
+        boardState->p_positions[other_side][BISHOP] &= ~to_mask;
+        boardState->p_positions[other_side][KNIGHT] &= ~to_mask;
+        boardState->p_positions[other_side][PAWN] &= ~to_mask;
+    }
 
     //handle castle
-    if (move.flags & FLAG_CASTLE_QUEENSIDE) {
+    else if (move.flags & FLAG_CASTLE_QUEENSIDE) {
         if (boardState->turn == WHITE) {
             boardState->p_positions[WHITE][KING] = 1ULL << 5;
             boardState->p_positions[WHITE][ROOK] &= ~(1ULL << 7);
@@ -167,63 +291,7 @@ void applyMove(Move move, BoardState* boardState) {
             boardState->p_positions[BLACK][ROOK] |= (1ULL << 58);
         }
         removeCastleFlags(boardState);
-    } //general case, turn = WHITE
-    else if (boardState->turn == WHITE) {
-
-        //move friendly piece
-        if ((boardState->p_positions[WHITE][KING] & from_mask) != 0) {
-            removeCastleFlags(boardState);
-            boardState->p_positions[WHITE][KING] |= to_mask;
-        }
-        if ((boardState->p_positions[WHITE][QUEEN] & from_mask) != 0) boardState->p_positions[WHITE][QUEEN] |= to_mask;
-        if ((boardState->p_positions[WHITE][ROOK] & from_mask) != 0) boardState->p_positions[WHITE][ROOK] |= to_mask;
-        if ((boardState->p_positions[WHITE][BISHOP] & from_mask) != 0) boardState->p_positions[WHITE][BISHOP] |= to_mask;
-        if ((boardState->p_positions[WHITE][KNIGHT] & from_mask) != 0) boardState->p_positions[WHITE][KNIGHT] |= to_mask;
-        if ((boardState->p_positions[WHITE][PAWN] & from_mask) != 0) boardState->p_positions[WHITE][PAWN] |= to_mask;
-
-        boardState->p_positions[WHITE][KING] &= ~from_mask;
-        boardState->p_positions[WHITE][QUEEN] &= ~from_mask;
-        boardState->p_positions[WHITE][ROOK] &= ~from_mask;
-        boardState->p_positions[WHITE][BISHOP] &= ~from_mask;
-        boardState->p_positions[WHITE][KNIGHT] &= ~from_mask;
-        boardState->p_positions[WHITE][PAWN] &= ~from_mask;
-
-
-        boardState->p_positions[BLACK][KING] &= ~to_mask;
-        boardState->p_positions[BLACK][QUEEN] &= ~to_mask;
-        boardState->p_positions[BLACK][ROOK] &= ~to_mask;
-        boardState->p_positions[BLACK][BISHOP] &= ~to_mask;
-        boardState->p_positions[BLACK][KNIGHT] &= ~to_mask;
-        boardState->p_positions[BLACK][PAWN] &= ~to_mask;
-    } else {
-
-        if ((boardState->p_positions[BLACK][KING] & from_mask) != 0) {
-            removeCastleFlags(boardState);
-            boardState->p_positions[BLACK][KING] |= to_mask;
-        }
-        if ((boardState->p_positions[BLACK][QUEEN] & from_mask) != 0) boardState->p_positions[BLACK][QUEEN] |= to_mask;
-        if ((boardState->p_positions[BLACK][ROOK] & from_mask) != 0) boardState->p_positions[BLACK][ROOK] |= to_mask;
-        if ((boardState->p_positions[BLACK][BISHOP] & from_mask) != 0) boardState->p_positions[BLACK][BISHOP] |= to_mask;
-        if ((boardState->p_positions[BLACK][KNIGHT] & from_mask) != 0) boardState->p_positions[BLACK][KNIGHT] |= to_mask;
-        if ((boardState->p_positions[BLACK][PAWN] & from_mask) != 0) boardState->p_positions[BLACK][PAWN] |= to_mask;
-
-        boardState->p_positions[BLACK][KING] &= ~from_mask;
-        boardState->p_positions[BLACK][QUEEN] &= ~from_mask;
-        boardState->p_positions[BLACK][ROOK] &= ~from_mask;
-        boardState->p_positions[BLACK][BISHOP] &= ~from_mask;
-        boardState->p_positions[BLACK][KNIGHT] &= ~from_mask;
-        boardState->p_positions[BLACK][PAWN] &= ~from_mask;
-
-
-        boardState->p_positions[WHITE][KING] &= ~to_mask;
-        boardState->p_positions[WHITE][QUEEN] &= ~to_mask;
-        boardState->p_positions[WHITE][ROOK] &= ~to_mask;
-        boardState->p_positions[WHITE][BISHOP] &= ~to_mask;
-        boardState->p_positions[WHITE][KNIGHT] &= ~to_mask;
-        boardState->p_positions[WHITE][PAWN] &= ~to_mask;
-
     }
-
 
     boardState->turn ^= 1;
 
@@ -315,36 +383,18 @@ void calc_king_moves(uint64_t position, const BoardState* const boardState, Move
 
 uint64_t bishop_bitmap(uint64_t position, const BoardState* const boardState, SIDE turn) {
     uint64_t candidate_positions = 0;
+    uint64_t friendly_positions = boardState->positions[turn];
+    uint64_t enemy_positions = boardState->positions[turn ^ 1];
     int square = __builtin_ctzll(position); 
-    uint64_t friendly_positions = boardState->positions[boardState->turn];
-    uint64_t enemy_positions = boardState->positions[boardState->turn ^ 1];
-
-    // direction vectors: NE, NW, SE, SW
-    const int directions[4] = { 9, 7, -7, -9 };
-
-    for (int d = 0; d < 4; ++d) {
-        int step = directions[d];
-        int s = square;
-
-        while (1) {
-            s += step;
-
-            if (s < 0 || s >= 64) break;
-
-            // prevent file wraparound
-            int file_prev = (s - step) % 8;
-            int file_now = s % 8;
-            if (abs(file_now - file_prev) != 1) break;
-
-            uint64_t mask = 1ULL << s;
-            if (mask & friendly_positions) break;
-            candidate_positions |= mask;
-            if (mask & enemy_positions) break;
+    for (size_t dir = 0; dir < 4; dir++) {
+        for (size_t i = 0; i < 8; i++) {
+            uint64_t possible_move = BISHOP_MOVE_MAP[square][dir][i];
+            if (possible_move & friendly_positions) break;
+            candidate_positions |= BISHOP_MOVE_MAP[square][dir][i];
+            if (possible_move & enemy_positions) break;     
         }
     }
-
     return candidate_positions;
-
 }
 
 void calc_bishop_moves(uint64_t position, const BoardState* const boardState, MoveList* buffer) {
@@ -366,42 +416,17 @@ void calc_bishop_moves(uint64_t position, const BoardState* const boardState, Mo
 
 uint64_t rook_bitmap(uint64_t position, const BoardState* const boardState, SIDE side) {
     uint64_t candidate_positions = 0;
-    int square = __builtin_ctzll(position);
     uint64_t friendly_positions = boardState->positions[side];
     uint64_t enemy_positions = boardState->positions[side ^ 1];
-
-    // up (north)
-    for (int s = square + 8; s < 64; s += 8) {
-        uint64_t mask = 1ULL << s;
-        if (mask & friendly_positions) break;
-        candidate_positions |= mask;
-        if (mask & enemy_positions) break;
+    int square = __builtin_ctzll(position); 
+    for (size_t dir = 0; dir < 4; dir++) {
+        for (size_t i = 0; i < 8; i++) {
+            uint64_t possible_move = ROOK_MOVE_MAP[square][dir][i];
+            if (possible_move & friendly_positions) break;
+            candidate_positions |= ROOK_MOVE_MAP[square][dir][i];
+            if (possible_move & enemy_positions) break;     
+        }
     }
-
-    // down (south)
-    for (int s = square - 8; s >= 0; s -= 8) {
-        uint64_t mask = 1ULL << s;
-        if (mask & friendly_positions) break;
-        candidate_positions |= mask;
-        if (mask & enemy_positions) break;
-    }
-
-    // right (east)
-    for (int s = square + 1; s % 8 != 0; ++s) {
-        uint64_t mask = 1ULL << s;
-        if (mask & friendly_positions) break;
-        candidate_positions |= mask;
-        if (mask & enemy_positions) break;
-    }
-
-    // left (west)
-    for (int s = square - 1; s % 8 != 7 && s >= 0; --s) {
-        uint64_t mask = 1ULL << s;
-        if (mask & friendly_positions) break;
-        candidate_positions |= mask;
-        if (mask & enemy_positions) break;
-    }
-
     return candidate_positions;
 }
 
@@ -433,32 +458,13 @@ void calc_queen_moves(uint64_t position, const BoardState* const boardState, Mov
 uint64_t knight_bitmap(uint64_t position, const BoardState* const boardState, SIDE turn) {
 
     uint64_t candidate_positions = 0;
-    char file = bitmapToPosition(position).file;
-    uint64_t enemy_positions = boardState->positions[turn ^ 1];
     uint64_t friendly_positions = boardState->positions[turn];
-    
-    if (file > 'a') {
-        candidate_positions |= position >> 15;
-        candidate_positions |= position << 17;
+    int square = __builtin_ctzll(position); 
+    for (size_t i = 0; i < 8; i++) {
+        uint64_t possible_move = KNIGHT_MOVE_MAP[square][i];
+        if (possible_move & friendly_positions) continue;
+        candidate_positions |= possible_move; 
     }
-
-    if (file > 'b') {
-        candidate_positions |= position << 10;
-        candidate_positions |= position >> 6;
-    }
-
-    if (file < 'g') {
-        candidate_positions |= position << 6;
-        candidate_positions |= position >> 10;
-
-    }
-
-    if (file < 'h') {
-        candidate_positions |= position << 15;
-        candidate_positions |= position >> 17;
-    }
-
-    candidate_positions &= ~friendly_positions;
     return candidate_positions;
 
 }
