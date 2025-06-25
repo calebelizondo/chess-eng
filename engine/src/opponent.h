@@ -5,6 +5,6 @@
 
 
 
-extern void makeOpponentMove(BoardState* boardState);
+extern int makeOpponentMove(BoardState* boardState);
 
 #endif

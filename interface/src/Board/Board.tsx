@@ -25,17 +25,19 @@ const Board = () => {
   };
 
   return (
-    <div className="board">
-        {   state.state.positions.split("").map((char: string, idx: number) => {
-            return <div key={idx} className={"square " + determineSquareColor(idx)}>
-                <Piece char={char} index={idx} space={determineSpace(idx)} validMove={(state.state.validMoves !== null && state.state.validMoves.split("").reverse()[idx] === 'x')}/>
-                { (state.state.validMoves !== null && state.state.validMoves.split("").reverse()[idx] === 'x') &&
-                  <div className="validmove"/>
-                }
-            </div>
-        })
-        }
-    </div>
+    <>
+      <div className="board">
+          {   state.state.positions.split("").map((char: string, idx: number) => {
+              return <div key={idx} className={"square " + determineSquareColor(idx)}>
+                  <Piece char={char} index={idx} space={determineSpace(idx)} validMove={(state.state.validMoves !== null && state.state.validMoves.split("").reverse()[idx] === 'x')}/>
+                  { (state.state.validMoves !== null && state.state.validMoves.split("").reverse()[idx] === 'x') &&
+                    <div className="validmove"/>
+                  }
+              </div>
+          })
+          }
+      </div>
+    </>
   )
 }
 

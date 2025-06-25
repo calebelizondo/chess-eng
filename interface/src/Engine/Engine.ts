@@ -30,6 +30,7 @@ class Engine {
   public getValidMoves: (space: Space) => String;
   public isPlayerInCheck: () => boolean;
   public isEnemyInCheck: () => boolean;
+  public getScore: () => number;
 
   constructor(module: any) {
     const print = module.cwrap('printCurrentBoardState', null, []);
@@ -39,6 +40,7 @@ class Engine {
     const getMoves = module.cwrap('getValidPieceMoves', 'number', ['string']);
     const getPlayerInCheck = module.cwrap('isPlayerInCheck', 'boolean', []);
     const getEnemyInCheck = module.cwrap('isEnemyInCheck', 'boolean', []);
+    const getPlayerScore = module.cwrap('getScore', 'number', []);
 
     this.printBoard = () => {
       print();
@@ -85,6 +87,10 @@ class Engine {
       const ptr = getMoves(space);
       const moveStr = module.UTF8ToString(ptr);
       return moveStr;
+    }
+
+    this.getScore = () => {
+      return getPlayerScore();
     }
   }
 }

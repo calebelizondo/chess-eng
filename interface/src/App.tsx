@@ -4,6 +4,7 @@ import Board from './Board/Board';
 import { initEngine } from './Engine/Engine';
 import { GameStateProvider } from './GameState/GameState';
 import Menu from './Menu/Menu';
+import EvalBar from './EvalBar/EvalBar';
 
 function App() {
   const [engineReady, setEngineReady] = useState(false);
@@ -24,12 +25,12 @@ function App() {
     <GameStateProvider>
       <div
         style={{
-          display: "grid",
-          gridTemplateRows: "1fr 1fr",
-          gridTemplateColumns: "1fr"
+          display: "flex",
+          flexDirection: "row",
         }}
       >
-        <Board />
+          <EvalBar />
+          <Board />
         <Menu />
       </div>
     </GameStateProvider>

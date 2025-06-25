@@ -11,6 +11,7 @@
 
 BoardState* current_board_state = NULL;
 MoveList* available_moves = NULL;
+int score = 0;
 
 int main() {
 
@@ -68,8 +69,8 @@ char* movePiece(char* from, char* to, bool isCastle, bool isEnpassant, bool isPr
 
     assert(move_found);
     available_moves->count = 0;
-
-    makeOpponentMove(current_board_state);
+    //-opponent's score = player's score
+    score = -makeOpponentMove(current_board_state);
 
     return getCurrentBoardState();
 }
@@ -99,4 +100,9 @@ bool isEnemyInCheck() {
 EMSCRIPTEN_KEEPALIVE 
 bool isPlayerInCheck() {
     return isInCheck(WHITE, current_board_state);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getScore() {
+    return score;
 }

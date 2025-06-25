@@ -81,8 +81,9 @@ bool read(const BoardState* const boardState, TEntry* buffer) {
 
     if (trans_table[index].key == zhash) {
 
-        printf("found!");
-        *buffer = trans_table[index];
+        // *buffer = trans_table[index];
+
+        memcpy(buffer, &trans_table[index], sizeof(TEntry));
         return true;
     }
 

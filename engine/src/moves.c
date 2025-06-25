@@ -158,7 +158,9 @@ bool isInCheck(SIDE side, const BoardState* const boardState) {
     //could also (maybe) capture it
     //thus it is in check 
 
-    if (friendly_king == 0) return true;
+    // if (friendly_king == 0) return true;
+
+    assert(friendly_king != 0);
 
     uint64_t capture_bitmap = 0;
     capture_bitmap = king_bitmap(friendly_king, boardState, side);
@@ -193,13 +195,8 @@ void getValidMoves(uint64_t piece_mask, const BoardState* const boardState, Move
     psuedoMoveGenerator[pt](piece_mask, boardState, buffer);
 
     for (size_t possible_move = psuedoMovePointer; possible_move < buffer->count; possible_move++) {
-        applied_move = *boardState;
+        memcpy(&applied_move, boardState, sizeof(BoardState));
         applyMove(buffer->moves[possible_move], &applied_move);
-        // const uint64_t friendly_king = applied_move.p_positions[boardState->turn][KING];
-        // if (friendly_king == 0) {
-        //     printBoard(&applied_move);
-        // }
-
         bool move_is_legal = !isInCheck(boardState->turn, &applied_move);
         if (move_is_legal) {
             buffer->moves[psuedoMovePointer] = buffer->moves[possible_move];
@@ -222,10 +219,6 @@ void removeCastleFlags(BoardState* boardState) {
     }
 }
 
-void resetEnPassantSquares(BoardState* boardState) {
-    boardState->valid_enpassant = 0;
-}
-
 
 /*
     TODO: properly handle flags (castle, promotion, en-passante)
@@ -239,14 +232,22 @@ void applyMove(Move move, BoardState* boardState) {
     bool side = boardState->turn;
     bool other_side = boardState->turn ^ 1;
 
+    //reset en-passant squares
+    boardState->valid_enpassant = 0;
+
+    //general case for move or capture
     if (move.flags == FLAG_NONE || move.flags == FLAG_CAPTURE) {
-        //move friendly piece
+        //if king moves, get rid of castle rights
         if ((boardState->p_positions[side][KING] & from_mask) != 0) {
             removeCastleFlags(boardState);
             boardState->p_positions[side][KING] |= to_mask;
         }
         if ((boardState->p_positions[side][QUEEN] & from_mask) != 0) boardState->p_positions[side][QUEEN] |= to_mask;
-        if ((boardState->p_positions[side][ROOK] & from_mask) != 0) boardState->p_positions[side][ROOK] |= to_mask;
+
+        //if rook moves, get rid of castle rights
+        if ((boardState->p_positions[side][ROOK] & from_mask) != 0) {
+            boardState->p_positions[side][ROOK] |= to_mask;
+        };
         if ((boardState->p_positions[side][BISHOP] & from_mask) != 0) boardState->p_positions[side][BISHOP] |= to_mask;
         if ((boardState->p_positions[side][KNIGHT] & from_mask) != 0) boardState->p_positions[side][KNIGHT] |= to_mask;
         if ((boardState->p_positions[side][PAWN] & from_mask) != 0) boardState->p_positions[side][PAWN] |= to_mask;
@@ -265,8 +266,21 @@ void applyMove(Move move, BoardState* boardState) {
         boardState->p_positions[other_side][BISHOP] &= ~to_mask;
         boardState->p_positions[other_side][KNIGHT] &= ~to_mask;
         boardState->p_positions[other_side][PAWN] &= ~to_mask;
+    } 
+
+    else if (move.flags == FLAG_PAWN_MOVE_TWO) {
+        boardState->p_positions[side][PAWN] |= to_mask;
+        boardState->p_positions[side][PAWN] &= ~from_mask;
+        boardState->valid_enpassant |= to_mask << ((turn == WHITE) ? 8 : -8);
     }
 
+    else if (move.flags == FLAG_EN_PASSANT) {
+        boardState->p_positions[side][PAWN] |= to_mask;
+        boardState->p_positions[side][PAWN] &= ~from_mask;
+        
+        uint64_t taken_mask = to_mask << ((turn == WHITE) ? 8 : -8);
+        boardState->p_positions[other_side][PAWN] &= ~taken_mask;
+    }
     //handle castle
     else if (move.flags & FLAG_CASTLE_QUEENSIDE) {
         if (boardState->turn == WHITE) {
@@ -305,7 +319,6 @@ uint64_t king_bitmap(uint64_t position, const BoardState* const boardState, SIDE
     
     uint64_t friendly_positions = boardState->positions[boardState->turn];
     uint64_t enemy_positions = boardState->positions[boardState->turn ^ 1];
-
     
     uint64_t candidate_positions = 0;
     const char file = bitmapToPosition(position).file; 
@@ -491,7 +504,7 @@ void calc_knight_moves(uint64_t position, const BoardState* const boardState, Mo
 
 uint64_t pawn_bitmap(uint64_t position, const BoardState* boardState, SIDE turn) {
     uint64_t friendly_positions = boardState->positions[turn];
-    uint64_t enemy_positions = boardState->positions[(turn) ^ 1];
+    uint64_t enemy_positions = boardState->positions[(turn) ^ 1] | boardState->valid_enpassant;
 
     const uint64_t occupied_positions = friendly_positions | enemy_positions;
     const char file = bitmapToPosition(position).file;
@@ -541,8 +554,11 @@ void calc_pawn_moves(uint64_t position, const BoardState* const boardState, Move
         move.from = position;
         move.to = new_position;
         move.flags = (new_position & enemy_positions) ? FLAG_CAPTURE : FLAG_NONE;
+        move.flags |= !((to << 8) == new_position) || ((to >> 8) == new_position) ? FLAG_PAWN_MOVE_TWO : FLAG_NONE;
         move.promotion = NO_PROMOTION;
         buffer->moves[buffer->count] = move;
         buffer->count++;
     }
+
+    //special case: en-passant
 }

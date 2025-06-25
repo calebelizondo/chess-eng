@@ -10,12 +10,14 @@ import type { Space } from "../Board/types";
 
 export type GameState = 
     {
+        score: number,
         positions: String,
         activePiece: null,
         validMoves: null    
     } 
         |
     {
+        score: number,
         positions: String, 
         activePiece: Space, 
         validMoves: String
@@ -36,6 +38,7 @@ const GameStateContext = createContext<GameStateContextType | null>(null);
 export const GameStateProvider: React.FC<{children: React.ReactNode}> = ({children}) => {
 
     const [gameState, setGameState] = useState<GameState>({
+        score: 0,
         positions: "",
         activePiece: null,
         validMoves: null,
@@ -45,7 +48,9 @@ export const GameStateProvider: React.FC<{children: React.ReactNode}> = ({childr
     const moveActivePieceTo = (to: Space) => {
         // console.log(`move active from ${gameState.activePiece} piece to ${to}`);
         if (gameState === null || gameState.activePiece === null) throw new Error("attempting to move null piece!");
-        setGameState({positions: ENGINE.move(gameState.activePiece, to), activePiece: null, validMoves: null});
+        const newBoardPositions = ENGINE.move(gameState.activePiece, to);
+        const newScore = ENGINE.getScore();
+        setGameState({positions: newBoardPositions, score: newScore, activePiece: null, validMoves: null});
     };
 
     const setActivePiece = async (ap: Space | null) => {
@@ -55,9 +60,11 @@ export const GameStateProvider: React.FC<{children: React.ReactNode}> = ({childr
     };
 
     useEffect(() => {
-        setGameState({positions: ENGINE.getBoardState(), activePiece: null, validMoves: null});
+        setGameState({positions: ENGINE.getBoardState(), score: 0, activePiece: null, validMoves: null});
     }, []);
     
+
+    console.log("current score:", ENGINE.getScore());
 
     return (
         <GameStateContext.Provider value={

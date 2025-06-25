@@ -17,7 +17,8 @@ typedef enum {
     FLAG_EN_PASSANT  = 1 << 0,
     FLAG_CASTLE_KINGSIDE = 1 << 1,
     FLAG_CASTLE_QUEENSIDE = 1 << 2,
-    FLAG_CAPTURE     = 1 << 3
+    FLAG_CAPTURE     = 1 << 3, 
+    FLAG_PAWN_MOVE_TWO = 1 << 4;
 } MoveFlags;
 
 typedef struct {
