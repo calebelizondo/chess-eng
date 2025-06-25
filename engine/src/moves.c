@@ -185,7 +185,6 @@ bool isInCheck(SIDE side, const BoardState* const boardState) {
 
 //Assumption: If a move allows a response that could capture the King, it is illegal: 
 void getValidMoves(uint64_t piece_mask, const BoardState* const boardState, MoveList* buffer) {
-
     PieceType pt = getPieceType(piece_mask, boardState);
 
     //pointer to psuedo-legal moves start/legal move end:
@@ -233,7 +232,7 @@ void applyMove(Move move, BoardState* boardState) {
     bool other_side = boardState->turn ^ 1;
 
     //reset en-passant squares
-    boardState->valid_enpassant = 0;
+    boardState->valid_enpassant = (move.flags == FLAG_EN_PASSANT) ? boardState->valid_enpassant : 0;
 
     //general case for move or capture
     if (move.flags == FLAG_NONE || move.flags == FLAG_CAPTURE) {
@@ -271,15 +270,20 @@ void applyMove(Move move, BoardState* boardState) {
     else if (move.flags == FLAG_PAWN_MOVE_TWO) {
         boardState->p_positions[side][PAWN] |= to_mask;
         boardState->p_positions[side][PAWN] &= ~from_mask;
-        boardState->valid_enpassant |= to_mask << ((turn == WHITE) ? 8 : -8);
+        boardState->valid_enpassant |= (boardState->turn == WHITE)
+            ? (from_mask << 8)
+            : (from_mask >> 8);
     }
 
     else if (move.flags == FLAG_EN_PASSANT) {
         boardState->p_positions[side][PAWN] |= to_mask;
         boardState->p_positions[side][PAWN] &= ~from_mask;
         
-        uint64_t taken_mask = to_mask << ((turn == WHITE) ? 8 : -8);
+        uint64_t taken_mask = (boardState->turn == WHITE)
+            ? (to_mask << 8)
+            : (to_mask >> 8);
         boardState->p_positions[other_side][PAWN] &= ~taken_mask;
+        boardState->valid_enpassant = 0;
     }
     //handle castle
     else if (move.flags & FLAG_CASTLE_QUEENSIDE) {
@@ -554,7 +558,8 @@ void calc_pawn_moves(uint64_t position, const BoardState* const boardState, Move
         move.from = position;
         move.to = new_position;
         move.flags = (new_position & enemy_positions) ? FLAG_CAPTURE : FLAG_NONE;
-        move.flags |= !((to << 8) == new_position) || ((to >> 8) == new_position) ? FLAG_PAWN_MOVE_TWO : FLAG_NONE;
+        move.flags |= (((new_position << 16) == position) || ((new_position >> 16) == position)) ? FLAG_PAWN_MOVE_TWO : FLAG_NONE;
+        move.flags |= (new_position & boardState->valid_enpassant) ? FLAG_EN_PASSANT : FLAG_NONE;
         move.promotion = NO_PROMOTION;
         buffer->moves[buffer->count] = move;
         buffer->count++;

@@ -92,7 +92,9 @@ int makeOptimalMove(BoardState* boardState, int depth) {
             best = moves.moves[i];
         }
     }
-
+    if (best.flags == FLAG_EN_PASSANT) {
+        printf("attempting en passant!");
+    }
     applyMove(best, boardState);
 
     return best_score;
