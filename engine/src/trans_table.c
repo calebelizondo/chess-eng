@@ -61,16 +61,17 @@ uint64_t hash(const BoardState* const boardState) {
     }
 
     //hash castling rights
-    uint64_t castling_bb = boardState->can_castle;
-    while (castling_bb) {
-        int sq = __builtin_ctzll(castling_bb);
-        h ^= zobrist_table[(PIECE_TYPE_COUNT * 2) + 1][sq];
-        castling_bb &= castling_bb - 1;
-    }
+    // uint64_t castling_bb = boardState->can_castle;
+    // while (castling_bb) {
+    //     int sq = __builtin_ctzll(castling_bb);
+    //     h ^= zobrist_table[(PIECE_TYPE_COUNT * 2) + 1][sq];
+    //     castling_bb &= castling_bb - 1;
+    // }
+
+    h ^= zobrist_table[(PIECE_TYPE_COUNT * 2) + 1][boardState->can_castle];
 
     //hash turn
-    int turn = boardState->turn;
-    h ^= zobrist_table[(PIECE_TYPE_COUNT * 2) + 2][turn];
+    h ^= zobrist_table[(PIECE_TYPE_COUNT * 2) + 2][boardState->turn];
     
     return h;
 }

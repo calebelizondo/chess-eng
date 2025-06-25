@@ -280,8 +280,8 @@ void applyMove(Move move, BoardState* boardState) {
         boardState->p_positions[side][PAWN] &= ~from_mask;
         
         uint64_t taken_mask = (boardState->turn == WHITE)
-            ? (to_mask << 8)
-            : (to_mask >> 8);
+            ? (to_mask >> 8)
+            : (to_mask << 8);
         boardState->p_positions[other_side][PAWN] &= ~taken_mask;
         boardState->valid_enpassant = 0;
     }
