@@ -34,7 +34,7 @@ uint64_t hash(const BoardState* const boardState) {
 
     //hash white pieces
     for (size_t i = 0; i < PIECE_TYPE_COUNT; i++) {
-        uint64_t bb = boardState->p_positions[WHITE][i];
+        uint64_t bb = boardState->pieces[WHITE][i];
         while (bb) {
             int sq = __builtin_ctzll(bb);
             h ^= zobrist_table[i][sq];
@@ -44,7 +44,7 @@ uint64_t hash(const BoardState* const boardState) {
 
     //hash black pieces
     for (size_t i = PIECE_TYPE_COUNT; i < PIECE_TYPE_COUNT * 2; i++) {
-        uint64_t bb = boardState->p_positions[BLACK][i - PIECE_TYPE_COUNT];
+        uint64_t bb = boardState->pieces[BLACK][i - PIECE_TYPE_COUNT];
         while (bb) {
             int sq = __builtin_ctzll(bb);
             h ^= zobrist_table[i][sq];
@@ -61,13 +61,6 @@ uint64_t hash(const BoardState* const boardState) {
     }
 
     //hash castling rights
-    // uint64_t castling_bb = boardState->can_castle;
-    // while (castling_bb) {
-    //     int sq = __builtin_ctzll(castling_bb);
-    //     h ^= zobrist_table[(PIECE_TYPE_COUNT * 2) + 1][sq];
-    //     castling_bb &= castling_bb - 1;
-    // }
-
     h ^= zobrist_table[(PIECE_TYPE_COUNT * 2) + 1][boardState->can_castle];
 
     //hash turn

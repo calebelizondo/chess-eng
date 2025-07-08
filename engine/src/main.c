@@ -19,7 +19,8 @@ int main() {
 
     current_board_state = malloc(sizeof(STARTING_BOARD_STATE));
     available_moves = malloc(sizeof(MoveList));
-    updatePositionBitmap(current_board_state);
+    updatePositions(current_board_state);
+    initAttackMaps(current_board_state);
 
 
     if (current_board_state == NULL || available_moves == NULL) {
@@ -78,8 +79,7 @@ char* movePiece(char* from, char* to, bool isCastle, bool isEnpassant, bool isPr
 EMSCRIPTEN_KEEPALIVE
 char* getValidPieceMoves(char* piece) {
 
-    current_board_state->turn = WHITE;
-    updatePositionBitmap(current_board_state);
+    //assert(current_board_state->turn == WHITE);
     available_moves->count = 0;
     getValidMoves(stringPositionToBitmap(piece), current_board_state, available_moves);
 
@@ -105,4 +105,9 @@ bool isPlayerInCheck() {
 EMSCRIPTEN_KEEPALIVE
 int getScore() {
     return score;
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool isWhitesTurn() {
+    return current_board_state->turn;
 }

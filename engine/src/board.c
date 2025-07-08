@@ -21,7 +21,13 @@ const BoardState STARTING_BOARD_STATE = {
     .can_castle = WHITE_QUEENSIDE | WHITE_KINGSIDE | BLACK_KINGSIDE | BLACK_QUEENSIDE,
     .valid_enpassant = 0,
     .last_move = 0,
-    .p_positions = { 
+    .attacked_by = {
+        [WHITE] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0}, 
+        [BLACK] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0}, 
+    },
+    .pinned = {0, 0},
+    .check_mask = {0, 0},
+    .pieces = { 
         [BLACK] = {
             [KING] = 0b0000100000000000000000000000000000000000000000000000000000000000,
             [QUEEN] = 0b0001000000000000000000000000000000000000000000000000000000000000,
@@ -41,22 +47,25 @@ const BoardState STARTING_BOARD_STATE = {
     }
 };
 
-void updatePositionBitmap(BoardState* board_state) {
+
+void updatePositions(BoardState* board_state) {
+
+    //update positions 
     board_state->positions[BLACK] = 
-        board_state->p_positions[BLACK][KING] | 
-        board_state->p_positions[BLACK][QUEEN] |
-        board_state->p_positions[BLACK][PAWN] | 
-        board_state->p_positions[BLACK][ROOK] |
-        board_state->p_positions[BLACK][BISHOP] |
-        board_state->p_positions[BLACK][KNIGHT];
+        board_state->pieces[BLACK][KING] | 
+        board_state->pieces[BLACK][QUEEN] |
+        board_state->pieces[BLACK][PAWN] | 
+        board_state->pieces[BLACK][ROOK] |
+        board_state->pieces[BLACK][BISHOP] |
+        board_state->pieces[BLACK][KNIGHT];
 
     board_state->positions[WHITE] = 
-        board_state->p_positions[WHITE][KING] | 
-        board_state->p_positions[WHITE][QUEEN] |
-        board_state->p_positions[WHITE][PAWN] | 
-        board_state->p_positions[WHITE][ROOK] |
-        board_state->p_positions[WHITE][BISHOP] |
-        board_state->p_positions[WHITE][KNIGHT];
+        board_state->pieces[WHITE][KING] | 
+        board_state->pieces[WHITE][QUEEN] |
+        board_state->pieces[WHITE][PAWN] | 
+        board_state->pieces[WHITE][ROOK] |
+        board_state->pieces[WHITE][BISHOP] |
+        board_state->pieces[WHITE][KNIGHT];
 }
 
 char* boardStateToArray(BoardState* board_state) {
@@ -66,19 +75,19 @@ char* boardStateToArray(BoardState* board_state) {
 
         uint64_t mask = 1ULL << (63 - i);
 
-        if (board_state->p_positions[WHITE][KING] & mask) { board[i] = 'K'; }
-        else if (board_state->p_positions[WHITE][QUEEN] & mask) { board[i] = 'Q'; }
-        else if (board_state->p_positions[WHITE][ROOK] & mask) { board[i] = 'R'; }
-        else if (board_state->p_positions[WHITE][KNIGHT] & mask) { board[i] = 'N'; }
-        else if (board_state->p_positions[WHITE][BISHOP] & mask) { board[i] = 'B'; }
-        else if (board_state->p_positions[WHITE][PAWN] & mask) { board[i] = 'P'; }
+        if (board_state->pieces[WHITE][KING] & mask) { board[i] = 'K'; }
+        else if (board_state->pieces[WHITE][QUEEN] & mask) { board[i] = 'Q'; }
+        else if (board_state->pieces[WHITE][ROOK] & mask) { board[i] = 'R'; }
+        else if (board_state->pieces[WHITE][KNIGHT] & mask) { board[i] = 'N'; }
+        else if (board_state->pieces[WHITE][BISHOP] & mask) { board[i] = 'B'; }
+        else if (board_state->pieces[WHITE][PAWN] & mask) { board[i] = 'P'; }
 
-        else if (board_state->p_positions[BLACK][KING] & mask) { board[i] = 'k'; }
-        else if (board_state->p_positions[BLACK][QUEEN] & mask) { board[i] = 'q'; }
-        else if (board_state->p_positions[BLACK][ROOK] & mask) { board[i] = 'r'; }
-        else if (board_state->p_positions[BLACK][KNIGHT] & mask) { board[i] = 'n'; }
-        else if (board_state->p_positions[BLACK][BISHOP] & mask) { board[i] = 'b'; }
-        else if (board_state->p_positions[BLACK][PAWN] & mask) { board[i] = 'p'; }
+        else if (board_state->pieces[BLACK][KING] & mask) { board[i] = 'k'; }
+        else if (board_state->pieces[BLACK][QUEEN] & mask) { board[i] = 'q'; }
+        else if (board_state->pieces[BLACK][ROOK] & mask) { board[i] = 'r'; }
+        else if (board_state->pieces[BLACK][KNIGHT] & mask) { board[i] = 'n'; }
+        else if (board_state->pieces[BLACK][BISHOP] & mask) { board[i] = 'b'; }
+        else if (board_state->pieces[BLACK][PAWN] & mask) { board[i] = 'p'; }
         else board[i] = '.';
     }
 
@@ -152,7 +161,7 @@ uint64_t stringPositionToBitmap(const char* str) {
 
 PieceType getPieceType(uint64_t piece_mask, const BoardState* const boardState) {
     for (int pt = 0; pt < PIECE_TYPE_COUNT; pt++) {
-        if ((boardState->p_positions[WHITE][pt] | boardState->p_positions[BLACK][pt]) & piece_mask) {
+        if ((boardState->pieces[WHITE][pt] | boardState->pieces[BLACK][pt]) & piece_mask) {
             return (PieceType)pt;
         }
     }
