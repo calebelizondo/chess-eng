@@ -11,26 +11,26 @@
 
 #define SEARCH_DEPTH 6
 
-//positive score = White up material
-//negative score = Black up material
+//positive score = current player up material
+//negative score = opposing player up material
 int scorePosition(BoardState* boardState) {
     int score = 0;
     bool side = boardState->turn;
     bool other_side = boardState->turn ^ 1;
 
-    score += __builtin_popcountll(boardState->p_positions[side][KING]) * 50;
-    score += __builtin_popcountll(boardState->p_positions[side][QUEEN]) * 8;
-    score += __builtin_popcountll(boardState->p_positions[side][ROOK]) * 5;
-    score += __builtin_popcountll(boardState->p_positions[side][KNIGHT]) * 3;
-    score += __builtin_popcountll(boardState->p_positions[side][BISHOP]) * 3;
-    score += __builtin_popcountll(boardState->p_positions[side][PAWN]);
+    score += __builtin_popcountll(boardState->pieces[side][KING]) * 50;
+    score += __builtin_popcountll(boardState->pieces[side][QUEEN]) * 9;
+    score += __builtin_popcountll(boardState->pieces[side][ROOK]) * 5;
+    score += __builtin_popcountll(boardState->pieces[side][KNIGHT]) * 3;
+    score += __builtin_popcountll(boardState->pieces[side][BISHOP]) * 3;
+    score += __builtin_popcountll(boardState->pieces[side][PAWN]);
 
-    score -= __builtin_popcountll(boardState->p_positions[other_side][KING]) * 50;
-    score -= __builtin_popcountll(boardState->p_positions[other_side][QUEEN]) * 8;
-    score -= __builtin_popcountll(boardState->p_positions[other_side][ROOK]) * 5;
-    score -= __builtin_popcountll(boardState->p_positions[other_side][KNIGHT]) * 3;
-    score -= __builtin_popcountll(boardState->p_positions[other_side][BISHOP]) * 3;
-    score -= __builtin_popcountll(boardState->p_positions[other_side][PAWN]);
+    score -= __builtin_popcountll(boardState->pieces[other_side][KING]) * 50;
+    score -= __builtin_popcountll(boardState->pieces[other_side][QUEEN]) * 9;
+    score -= __builtin_popcountll(boardState->pieces[other_side][ROOK]) * 5;
+    score -= __builtin_popcountll(boardState->pieces[other_side][KNIGHT]) * 3;
+    score -= __builtin_popcountll(boardState->pieces[other_side][BISHOP]) * 3;
+    score -= __builtin_popcountll(boardState->pieces[other_side][PAWN]);
 
     return score;
 }
@@ -65,7 +65,6 @@ int negamax(BoardState* state, size_t depth, int alpha, int beta) {
         alpha = (alpha > score) ? alpha : score;
 
         //restore state
-        *state = saved_state;
         memcpy(state, &saved_state, sizeof(BoardState));
 
         if (alpha >= beta) break;
@@ -92,9 +91,7 @@ int makeOptimalMove(BoardState* boardState, int depth) {
             best = moves.moves[i];
         }
     }
-    if (best.flags == FLAG_EN_PASSANT) {
-        printf("attempting en passant!");
-    }
+
     applyMove(best, boardState);
 
     return best_score;

@@ -28,9 +28,16 @@ typedef enum {
 
 typedef struct {
     SIDE turn;
-    uint64_t p_positions[SIDE_COUNT][PIECE_TYPE_COUNT];
+    //index 0: side (BLACK, WHITE), index 1: piece type -> value: bitboard of all places piece type is
+    uint64_t pieces[SIDE_COUNT][PIECE_TYPE_COUNT];
+    //index 0: side (BLACK, WHITE), index 1: board location -> value: bitboard of all places piece attacks
+    uint64_t attacked_by[SIDE_COUNT][64];
+    //index 0: side (BLACK, WHITE) -> all occupied positions by side
+    //used for quick lookup (is a piece in my way??)
     uint64_t positions[SIDE_COUNT];
     CanCastle can_castle;
+    uint64_t pinned[SIDE_COUNT];
+    uint64_t check_mask[SIDE_COUNT];
     uint64_t valid_enpassant;
     uint64_t last_move;
 } BoardState;
@@ -51,7 +58,10 @@ extern void printBoard(BoardState* board_state);
 extern char* boardStateToArray(BoardState* board_state);
 extern char* moveBitmapToString(uint64_t position);
 extern uint64_t stringPositionToBitmap(const char* str);
-extern void updatePositionBitmap(BoardState* board_state);
+
+extern void updateAttacks(BoardState* board_state);
+extern void updatePositions(BoardState* board_state);
+
 extern PieceType getPieceType(uint64_t piece_mask, const BoardState* const boardState);
 
 #endif

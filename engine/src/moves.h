@@ -26,6 +26,7 @@ typedef struct {
     uint64_t to;
     PromotionType promotion;
     MoveFlags flags;
+    PieceType piece;
 } Move;
 
 typedef struct {
@@ -39,5 +40,6 @@ extern bool isInCheck(SIDE side, const BoardState* const boardState);
 extern void getValidMoves(uint64_t piece_mask, const BoardState* const boardState, MoveList* buffer);
 extern void printBinary(uint64_t num);
 extern void initMoveMaps();
+extern void initAttackMaps(BoardState* boardState);
 
 #endif
