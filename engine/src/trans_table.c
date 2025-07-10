@@ -56,18 +56,19 @@ uint64_t hash(const BoardState* const boardState) {
     uint64_t en_ps_bb = boardState->valid_enpassant;
     while (en_ps_bb) {
         int sq = __builtin_ctzll(en_ps_bb);
-        h ^= zobrist_table[PIECE_TYPE_COUNT * 2][sq];
+        h ^= zobrist_table[EN_PASSANT][sq];
         en_ps_bb &= en_ps_bb - 1;
     }
 
     //hash castling rights
-    h ^= zobrist_table[(PIECE_TYPE_COUNT * 2) + 1][boardState->can_castle];
+    h ^= zobrist_table[CASTLE_RIGHTS][boardState->can_castle];
 
     //hash turn
-    h ^= zobrist_table[(PIECE_TYPE_COUNT * 2) + 2][boardState->turn];
+    h ^= zobrist_table[TURN][boardState->turn];
     
     return h;
 }
+
 
 bool read(const BoardState* const boardState, TEntry* buffer) {
     uint64_t zhash = hash(boardState);

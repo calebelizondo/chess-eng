@@ -5,26 +5,18 @@
 #include <string.h>
 
 typedef enum {
-    NO_PROMOTION = 0,
-    PROMOTE_KNIGHT = 1,
-    PROMOTE_BISHOP = 2,
-    PROMOTE_ROOK   = 3,
-    PROMOTE_QUEEN  = 4
-} PromotionType;
-
-typedef enum {
     FLAG_NONE        = 0,
     FLAG_EN_PASSANT  = 1 << 0,
     FLAG_CASTLE_KINGSIDE = 1 << 1,
     FLAG_CASTLE_QUEENSIDE = 1 << 2,
     FLAG_CAPTURE     = 1 << 3, 
-    FLAG_PAWN_MOVE_TWO = 1 << 4
+    FLAG_PAWN_MOVE_TWO = 1 << 4, 
+    FLAG_PROMOTION = 1 << 5,
 } MoveFlags;
 
 typedef struct {
     uint64_t from;
     uint64_t to;
-    PromotionType promotion;
     MoveFlags flags;
     PieceType piece;
 } Move;

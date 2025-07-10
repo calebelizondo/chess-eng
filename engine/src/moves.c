@@ -9,14 +9,6 @@
 #include <string.h>
 #include "maps.h"
 
-/*
-    TODO: 
-
-    - Kings shouldn't be able to castle out of check or if rook has previously moved
-    - Pawns need to be able to promote
-    - Pawns need to be able to en passante
-
-*/
 
 void calc_pawn_moves(uint64_t position, const BoardState* const boardState, MoveList* buffer);
 void calc_king_moves(uint64_t position, const BoardState* const boardState, MoveList* buffer);
@@ -183,7 +175,7 @@ void getAllValidMoves(const BoardState* const boardState, MoveList* buffer) {
     1. Castling out of check
     2. King moves into attacked square
     3. Pinned piece moves
-    4. When in check, the moving piece needs to move onto the check mask (take or block the checking piece)
+    4. When in check, the moving piece needs to either move onto the check mask or king needs to make out of the way (take or block the checking piece)
 */
 void getValidMoves(uint64_t piece_mask, const BoardState* const boardState, MoveList* buffer) {
     PieceType pt = getPieceType(piece_mask, boardState);
@@ -259,7 +251,7 @@ void applyMove(Move move, BoardState* boardState) {
     boardState->valid_enpassant = (move.flags == FLAG_EN_PASSANT) ? boardState->valid_enpassant : 0;
 
     //general case for move or capture
-    if (move.flags == FLAG_NONE || move.flags == FLAG_CAPTURE) {
+    if (__builtin_expect(move.flags == FLAG_NONE || move.flags == FLAG_CAPTURE, true)) {
 
         boardState->pieces[side][move.piece] &= ~from_mask;
         boardState->pieces[side][move.piece] |= to_mask;
@@ -280,7 +272,6 @@ void applyMove(Move move, BoardState* boardState) {
             ? (from_mask << 8)
             : (from_mask >> 8);
     }
-
     else if (move.flags == FLAG_EN_PASSANT) {
         boardState->pieces[side][PAWN] |= to_mask;
         boardState->pieces[side][PAWN] &= ~from_mask;
@@ -317,6 +308,18 @@ void applyMove(Move move, BoardState* boardState) {
             boardState->pieces[BLACK][ROOK] |= (1ULL << 58);
         }
         removeCastleFlags(boardState);
+    }
+    //handle promotion
+    else if (move.flags & FLAG_PROMOTION){ 
+        boardState->pieces[side][PAWN] &= ~from_mask;
+        boardState->pieces[side][QUEEN] |= to_mask;
+
+        boardState->pieces[other_side][KING] &= ~to_mask;
+        boardState->pieces[other_side][QUEEN] &= ~to_mask;
+        boardState->pieces[other_side][ROOK] &= ~to_mask;
+        boardState->pieces[other_side][BISHOP] &= ~to_mask;
+        boardState->pieces[other_side][KNIGHT] &= ~to_mask;
+        boardState->pieces[other_side][PAWN] &= ~to_mask;
     }
 
     updatePositions(boardState);
@@ -379,7 +382,6 @@ void calc_king_moves(uint64_t position, const BoardState* const boardState, Move
         move.from = position;
         move.to = new_position;
         move.flags = (new_position & enemy_positions) ? FLAG_CAPTURE : FLAG_NONE;
-        move.promotion = NO_PROMOTION;
         move.piece = KING;
 
         buffer->moves[buffer->count] = move;
@@ -391,8 +393,6 @@ void calc_king_moves(uint64_t position, const BoardState* const boardState, Move
         kingside_castle.from = position;
         kingside_castle.to = (boardState->turn == WHITE) ? (1ULL << 1) : (1ULL << 57);
         kingside_castle.flags = FLAG_NONE | FLAG_CASTLE_KINGSIDE;
-        kingside_castle.promotion = NO_PROMOTION;
-
         buffer->moves[buffer->count] = kingside_castle;
         buffer->count++;
     }
@@ -402,8 +402,6 @@ void calc_king_moves(uint64_t position, const BoardState* const boardState, Move
         queenside_castle.from = position;
         queenside_castle.to = (boardState->turn == WHITE) ? (1ULL << 5) : (1ULL << 61);
         queenside_castle.flags = FLAG_NONE | FLAG_CASTLE_QUEENSIDE;
-        queenside_castle.promotion = NO_PROMOTION;
-
         buffer->moves[buffer->count] = queenside_castle;
         buffer->count++;
     }
@@ -436,7 +434,6 @@ void calc_bishop_moves(uint64_t position, const BoardState* const boardState, Mo
         move.from = position;
         move.to = new_position;
         move.flags = (new_position & enemy_positions) ? FLAG_CAPTURE : FLAG_NONE;
-        move.promotion = NO_PROMOTION;
         move.piece = BISHOP;
         buffer->moves[buffer->count] = move;
         buffer->count++;
@@ -470,7 +467,6 @@ void calc_rook_moves(uint64_t position, const BoardState* const boardState, Move
         move.from = position;
         move.to = new_position;
         move.flags = (new_position & enemy_positions) ? FLAG_CAPTURE : FLAG_NONE;
-        move.promotion = NO_PROMOTION;
         move.piece = ROOK;
         buffer->moves[buffer->count] = move;
         buffer->count++;
@@ -522,7 +518,6 @@ void calc_knight_moves(uint64_t position, const BoardState* const boardState, Mo
         move.from = position;
         move.to = new_position;
         move.flags = (new_position & enemy_positions) ? FLAG_CAPTURE : FLAG_NONE;
-        move.promotion = NO_PROMOTION;
         move.piece = KNIGHT;
         buffer->moves[buffer->count] = move;
         buffer->count++;
@@ -572,6 +567,7 @@ void calc_pawn_moves(uint64_t position, const BoardState* const boardState, Move
     uint64_t enemy_positions = boardState->positions[boardState->turn ^ 1];
     const uint64_t move_bitmap = pawn_bitmap(position, friendly_positions, enemy_positions, boardState->valid_enpassant, boardState->turn);
     const size_t new_move_c = ((move_bitmap != 0) ? __builtin_popcountll(move_bitmap) : 0);
+    static const uint64_t promotion_map = 0xFF000000000000FF;
 
     for (size_t i = 0; i < new_move_c; i++) {
         uint64_t new_position = extract_nth_set_bit(move_bitmap, i);
@@ -581,7 +577,7 @@ void calc_pawn_moves(uint64_t position, const BoardState* const boardState, Move
         move.flags = (new_position & enemy_positions) ? FLAG_CAPTURE : FLAG_NONE;
         move.flags |= (((new_position << 16) == position) || ((new_position >> 16) == position)) ? FLAG_PAWN_MOVE_TWO : FLAG_NONE;
         move.flags |= (new_position & boardState->valid_enpassant) ? FLAG_EN_PASSANT : FLAG_NONE;
-        move.promotion = NO_PROMOTION;
+        move.flags |= (new_position & promotion_map) ? FLAG_PROMOTION : FLAG_NONE;
         move.piece = PAWN;
         buffer->moves[buffer->count] = move;
         buffer->count++;
