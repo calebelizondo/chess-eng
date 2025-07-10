@@ -29,6 +29,16 @@ void initTransTable() {
 }
 
 
+void XORPiece(BoardState* state, int idx, PieceType pt, SIDE side) {
+    ZTABLE_KEY key = (pt + (PIECE_TYPE_COUNT * side));
+    uint64_t new_hash = state->hash ^ zobrist_table[key][idx]; 
+    state->hash = new_hash;
+}
+
+void XOR(BoardState* state, int idx, ZTABLE_KEY key) {
+    state->hash ^= zobrist_table[key][idx];
+}
+
 uint64_t hash(const BoardState* const boardState) {
     uint64_t h = 0;
 
@@ -56,21 +66,21 @@ uint64_t hash(const BoardState* const boardState) {
     uint64_t en_ps_bb = boardState->valid_enpassant;
     while (en_ps_bb) {
         int sq = __builtin_ctzll(en_ps_bb);
-        h ^= zobrist_table[PIECE_TYPE_COUNT * 2][sq];
+        h ^= zobrist_table[EN_PASSANT][sq];
         en_ps_bb &= en_ps_bb - 1;
     }
 
     //hash castling rights
-    h ^= zobrist_table[(PIECE_TYPE_COUNT * 2) + 1][boardState->can_castle];
+    h ^= zobrist_table[CASTLE_RIGHTS][boardState->can_castle];
 
     //hash turn
-    h ^= zobrist_table[(PIECE_TYPE_COUNT * 2) + 2][boardState->turn];
+    h ^= zobrist_table[TURN][boardState->turn];
     
     return h;
 }
 
-bool read(const BoardState* const boardState, TEntry* buffer) {
-    uint64_t zhash = hash(boardState);
+
+bool read(uint64_t zhash, TEntry* buffer) {
     uint64_t index = zhash % (uint64_t) TABLE_SIZE;
 
     if (trans_table[index].key == zhash) {
@@ -86,7 +96,7 @@ bool read(const BoardState* const boardState, TEntry* buffer) {
 
 void write(const BoardState* const boardState, int depth, int score) {
 
-    uint64_t zhash = hash(boardState);
+    uint64_t zhash = boardState->hash;
     uint64_t index = zhash % (uint64_t) TABLE_SIZE;
 
     trans_table[index] = (TEntry) {
