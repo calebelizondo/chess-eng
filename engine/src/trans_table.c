@@ -29,6 +29,16 @@ void initTransTable() {
 }
 
 
+void XORPiece(BoardState* state, int idx, PieceType pt, SIDE side) {
+    ZTABLE_KEY key = (pt + (PIECE_TYPE_COUNT * side));
+    uint64_t new_hash = state->hash ^ zobrist_table[key][idx]; 
+    state->hash = new_hash;
+}
+
+void XOR(BoardState* state, int idx, ZTABLE_KEY key) {
+    state->hash ^= zobrist_table[key][idx];
+}
+
 uint64_t hash(const BoardState* const boardState) {
     uint64_t h = 0;
 
@@ -70,8 +80,7 @@ uint64_t hash(const BoardState* const boardState) {
 }
 
 
-bool read(const BoardState* const boardState, TEntry* buffer) {
-    uint64_t zhash = hash(boardState);
+bool read(uint64_t zhash, TEntry* buffer) {
     uint64_t index = zhash % (uint64_t) TABLE_SIZE;
 
     if (trans_table[index].key == zhash) {
@@ -87,7 +96,7 @@ bool read(const BoardState* const boardState, TEntry* buffer) {
 
 void write(const BoardState* const boardState, int depth, int score) {
 
-    uint64_t zhash = hash(boardState);
+    uint64_t zhash = boardState->hash;
     uint64_t index = zhash % (uint64_t) TABLE_SIZE;
 
     trans_table[index] = (TEntry) {

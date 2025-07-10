@@ -39,7 +39,7 @@ int scorePosition(BoardState* boardState) {
 int negamax(BoardState* state, size_t depth, int alpha, int beta) {
 
     TEntry entry;
-    bool found = read(state, &entry);
+    bool found = read(state->hash, &entry);
     if (found && entry.depth >= depth) {
         return entry.score;
     }

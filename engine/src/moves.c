@@ -8,6 +8,7 @@
 #include "utils.h"
 #include <string.h>
 #include "maps.h"
+#include "trans_table.h"
 
 
 void calc_pawn_moves(uint64_t position, const BoardState* const boardState, MoveList* buffer);
@@ -228,7 +229,7 @@ void removeCastleFlags(BoardState* boardState) {
     }
 }
 
-//TODO: Promotion
+//TODO: REMOVE CASTLE RIGHTS WHEN ROOK MOVES
 void applyMove(Move move, BoardState* boardState) {
 
     uint64_t from_mask = move.from;
@@ -248,78 +249,74 @@ void applyMove(Move move, BoardState* boardState) {
     boardState->pinned[other_side] = 0;
 
     //reset en-passant squares
-    boardState->valid_enpassant = (move.flags == FLAG_EN_PASSANT) ? boardState->valid_enpassant : 0;
+    boardState->valid_enpassant = 0;
 
-    //general case for move or capture
-    if (__builtin_expect(move.flags == FLAG_NONE || move.flags == FLAG_CAPTURE, true)) {
+    //regardless of case, need to remove piece from prev loc
+    boardState->pieces[side][move.piece]  &= ~from_mask;
+    //"remove" piece from hash
+    XORPiece(boardState, from_square, move.piece, side);
 
-        boardState->pieces[side][move.piece] &= ~from_mask;
-        boardState->pieces[side][move.piece] |= to_mask;
-        if (move.piece == KING) removeCastleFlags(boardState);
+    //move piece to new spot (queen if promotion, otherwise the piece that moved)
+    PieceType piece = __builtin_expect(move.flags & FLAG_PROMOTION, false) ? QUEEN : move.piece;
+    boardState->pieces[side][piece] |= to_mask;
+    //add piece to hash
+    XORPiece(boardState, to_square, piece, side);
+    if (piece == KING) removeCastleFlags(boardState);
 
-        boardState->pieces[other_side][KING] &= ~to_mask;
-        boardState->pieces[other_side][QUEEN] &= ~to_mask;
-        boardState->pieces[other_side][ROOK] &= ~to_mask;
-        boardState->pieces[other_side][BISHOP] &= ~to_mask;
-        boardState->pieces[other_side][KNIGHT] &= ~to_mask;
-        boardState->pieces[other_side][PAWN] &= ~to_mask;
+    //if we capture, we need to remove enemy position from new position
+    if (__builtin_expect(move.flags & FLAG_CAPTURE, false)) {
+        // boardState->pieces[other_side][KING] &= ~to_mask;
+        // boardState->pieces[other_side][QUEEN] &= ~to_mask;
+        // boardState->pieces[other_side][ROOK] &= ~to_mask;
+        // boardState->pieces[other_side][BISHOP] &= ~to_mask;
+        // boardState->pieces[other_side][KNIGHT] &= ~to_mask;
+        // boardState->pieces[other_side][PAWN] &= ~to_mask; 
 
+        for (int pt = 0; pt < PIECE_TYPE_COUNT; pt++) {
+            if (boardState->pieces[other_side][pt] & to_mask) {
+                boardState->pieces[other_side][pt] &= ~to_mask;
+                XORPiece(boardState, to_square, pt, other_side);
+                break;
+            }
+        }
     } 
-    else if (move.flags == FLAG_PAWN_MOVE_TWO) {
-        boardState->pieces[side][PAWN] |= to_mask;
-        boardState->pieces[side][PAWN] &= ~from_mask;
-        boardState->valid_enpassant |= (boardState->turn == WHITE)
-            ? (from_mask << 8)
-            : (from_mask >> 8);
-    }
-    else if (move.flags == FLAG_EN_PASSANT) {
-        boardState->pieces[side][PAWN] |= to_mask;
-        boardState->pieces[side][PAWN] &= ~from_mask;
-        
+
+    //SPECIAL CASES: 
+    //if en passant, take from en-passant square
+    if (__builtin_expect(move.flags & FLAG_EN_PASSANT, false)) {
         uint64_t taken_mask = (boardState->turn == WHITE)
             ? (to_mask >> 8)
             : (to_mask << 8);
         boardState->pieces[other_side][PAWN] &= ~taken_mask;
-        boardState->valid_enpassant = 0;
-
-        int taken_sq = __builtin_ctzll(taken_mask);
+        XORPiece(boardState, __builtin_ctzll(taken_mask), PAWN, other_side);
     }
-    //handle castle
-    else if (move.flags & FLAG_CASTLE_QUEENSIDE) {
+    //if we moved a pawn up two spaces, need to update en-passant squares
+    else if (__builtin_expect(move.flags & FLAG_PAWN_MOVE_TWO, false)) {
+        boardState->valid_enpassant |= (boardState->turn == WHITE)
+            ? (from_mask << 8)
+            : (from_mask >> 8);
+    }
+    //if castle, we need to move the rook as well
+    else if (__builtin_expect(move.flags & FLAG_CASTLE_KINGSIDE, false)) {
         if (boardState->turn == WHITE) {
-            boardState->pieces[WHITE][KING] = 1ULL << 5;
-            boardState->pieces[WHITE][ROOK] &= ~(1ULL << 7);
-            boardState->pieces[WHITE][ROOK] |= 1ULL << 4;
-        } else {
-            boardState->pieces[BLACK][KING] = 1ULL << 61;
-            boardState->pieces[BLACK][ROOK] &= ~(1ULL << 63);
-            boardState->pieces[BLACK][ROOK] |= 1ULL << 60;
-        }
-
-        removeCastleFlags(boardState);
-    } else if (move.flags & FLAG_CASTLE_KINGSIDE) {
-        if (boardState->turn == WHITE) {
-            boardState->pieces[WHITE][KING] = (1ULL << 1);
             boardState->pieces[WHITE][ROOK] &= ~(1ULL << 0);
             boardState->pieces[WHITE][ROOK] |= 1ULL << 2;
         } else {
-            boardState->pieces[BLACK][KING] = 1ULL << 57;
             boardState->pieces[BLACK][ROOK] &= ~(1ULL << 56); 
             boardState->pieces[BLACK][ROOK] |= (1ULL << 58);
         }
         removeCastleFlags(boardState);
     }
-    //handle promotion
-    else if (move.flags & FLAG_PROMOTION){ 
-        boardState->pieces[side][PAWN] &= ~from_mask;
-        boardState->pieces[side][QUEEN] |= to_mask;
+    else if (__builtin_expect(move.flags & FLAG_CASTLE_QUEENSIDE, false)) {
+        if (boardState->turn == WHITE) {
+            boardState->pieces[WHITE][ROOK] &= ~(1ULL << 7);
+            boardState->pieces[WHITE][ROOK] |= 1ULL << 4;
+        } else {
+            boardState->pieces[BLACK][ROOK] &= ~(1ULL << 63);
+            boardState->pieces[BLACK][ROOK] |= 1ULL << 60;
+        }
 
-        boardState->pieces[other_side][KING] &= ~to_mask;
-        boardState->pieces[other_side][QUEEN] &= ~to_mask;
-        boardState->pieces[other_side][ROOK] &= ~to_mask;
-        boardState->pieces[other_side][BISHOP] &= ~to_mask;
-        boardState->pieces[other_side][KNIGHT] &= ~to_mask;
-        boardState->pieces[other_side][PAWN] &= ~to_mask;
+        removeCastleFlags(boardState);
     }
 
     updatePositions(boardState);
@@ -393,6 +390,7 @@ void calc_king_moves(uint64_t position, const BoardState* const boardState, Move
         kingside_castle.from = position;
         kingside_castle.to = (boardState->turn == WHITE) ? (1ULL << 1) : (1ULL << 57);
         kingside_castle.flags = FLAG_NONE | FLAG_CASTLE_KINGSIDE;
+        kingside_castle.piece = KING;
         buffer->moves[buffer->count] = kingside_castle;
         buffer->count++;
     }
@@ -402,6 +400,7 @@ void calc_king_moves(uint64_t position, const BoardState* const boardState, Move
         queenside_castle.from = position;
         queenside_castle.to = (boardState->turn == WHITE) ? (1ULL << 5) : (1ULL << 61);
         queenside_castle.flags = FLAG_NONE | FLAG_CASTLE_QUEENSIDE;
+        queenside_castle.piece = KING;
         buffer->moves[buffer->count] = queenside_castle;
         buffer->count++;
     }
@@ -561,7 +560,6 @@ uint64_t pawn_bitmap(uint64_t position,  uint64_t friendly_positions, uint64_t e
     return candidate_positions;
 }
 
-//TODO: promotion
 void calc_pawn_moves(uint64_t position, const BoardState* const boardState, MoveList* buffer) {
     uint64_t friendly_positions = boardState->positions[boardState->turn];
     uint64_t enemy_positions = boardState->positions[boardState->turn ^ 1];

@@ -40,6 +40,7 @@ typedef struct {
     uint64_t check_mask[SIDE_COUNT];
     uint64_t valid_enpassant;
     uint64_t last_move;
+    uint64_t hash;
 } BoardState;
 
 extern const uint64_t AFILE;

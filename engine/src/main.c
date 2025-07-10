@@ -21,6 +21,8 @@ int main() {
     available_moves = malloc(sizeof(MoveList));
     updatePositions(current_board_state);
     initAttackMaps(current_board_state);
+    uint64_t starting_hash = hash(current_board_state);
+    current_board_state->hash = starting_hash;
 
 
     if (current_board_state == NULL || available_moves == NULL) {

@@ -29,7 +29,10 @@ typedef enum {
 
 extern void initTransTable();
 
-extern bool read(const BoardState* const boardState, TEntry* buffer);
-extern void write(const BoardState* const boardState, int depth, int score) ;
+extern bool read(uint64_t zhash, TEntry* buffer);
+extern void write(const BoardState* const boardState, int depth, int score);
+extern uint64_t hash(const BoardState* const boardState);
+extern void XORPiece(BoardState* state, int idx, PieceType pt, SIDE side);
+extern void XOR(BoardState* state, int idx, ZTABLE_KEY key);
 
 #endif
