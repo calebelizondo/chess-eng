@@ -1,21 +1,17 @@
 
-CC = emcc
+CC = gcc
 
 SRC_DIR = src
-LIB_DIR = lib
 BUILD_DIR = build
 
 SRC = $(wildcard $(SRC_DIR)/*.c)
-OUT_JS = $(BUILD_DIR)/main.js
+OUT = $(BUILD_DIR)/server
 
-CFLAGS = -O2
-EMCC_FLAGS = -s EXPORTED_RUNTIME_METHODS="['cwrap', 'UTF8ToString']" -s MODULARIZE=1 -s EXPORT_NAME="EngineModule" -s ASSERTIONS=1 -s ALLOW_MEMORY_GROWTH=1 -s USE_PTHREADS=1 -s PTHREAD_POOL_SIZE=40 -g
+all: $(OUT)
 
-all: $(OUT_JS)
-
-$(OUT_JS): $(SRC)
+$(OUT): $(SRC)
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) $(EMCC_FLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@
 
 clean:
 	rm -rf $(BUILD_DIR)
