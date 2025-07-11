@@ -7,12 +7,12 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include "http_service.h"
-#include "ws_service.h"
+#include "ws_connect.h"
+#include <libwebsockets.h>
 
 #define PORT 8080
 #define BUFFER_SIZE 4096
-#define RESPONSE_404 "HTTP/1.1 404 Not Found\r\nContent-Length: 13\r\n\r\n404 Not Found"
-#define RESPONSE_200 "HTTP/1.1 200 OK\r\nContent-Type: %s\r\nContent-Length: %ld\r\n\r\n"
+#define STATIC_DIR "../public"
 
 
 const char* get_mime_type(const char* path) {
@@ -22,73 +22,92 @@ const char* get_mime_type(const char* path) {
     return "application/octet-stream";
 }
 
-void serve_file(int client_fd, const char* path) {
-    char full_path[256] = "../public"; 
-    strcat(full_path, path); 
 
-    FILE* file = fopen(full_path, "rb");
-
-    if (!file) {
-        const char* not_found = RESPONSE_404;
-        write(client_fd, not_found, strlen(not_found)); 
-        return;
+static int callback_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
+    switch (reason) {
+        case LWS_CALLBACK_ESTABLISHED:
+            printf("WS connection established");
+            /*
+                Assign a code
+                Send a code
+            */
+            break;
+        case LWS_CALLBACK_RECEIVE:
+            printf("WS received %.*s\n", (int) len, (char*) in); 
+            lws_write(wsi, (unsigned char*) in, len, LWS_WRITE_TEXT); 
+            break;
+        case LWS_CALLBACK_CLOSED:
+            printf("WS connection closed");
+            break; 
+        default: 
+            break;
     }
 
-    fseek(file, 0, SEEK_END);
-    long fsize = ftell(file);
-    rewind(file);
-
-    char* content = malloc(fsize);
-    fread(content, 1, fsize, file);
-    fclose(file);
-
-    const char* mime = get_mime_type(full_path);
-    char header[512];
-
-    snprintf(header, sizeof(header), RESPONSE_200, mime, fsize);
-
-    write(client_fd, header, strlen(header));
-    write(client_fd, content, fsize);
-
-    free(content);
+    return 0;
 }
+
+static int callback_http(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
+    switch (reason) {
+        case LWS_CALLBACK_HTTP: {
+            char filepath[512];
+            const char *requested = (const char*) in;
+
+            snprintf(filepath, sizeof(filepath), "%s%s", STATIC_DIR, requested); 
+            const char* mime = get_mime_type(filepath);
+            if (lws_serve_http_file(wsi, filepath, mime, NULL, 0)) {
+                return -1;
+            }
+
+            return 0;
+        }
+        case LWS_CALLBACK_HTTP_FILE_COMPLETION:
+            return -1;
+        default:
+            break;
+    }
+
+    return 0;
+}
+
+static struct lws_protocols protocols[] = {
+    {
+        "http-only",
+        callback_http,
+        0,
+        0,
+    },
+    {
+        "ws-protocol",
+        callback_ws,
+        0,
+        4096,
+    },
+    { NULL, NULL, 0, 0 } 
+};
 
 
 void* http_service(void* args) {
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    struct lws_context_creation_info info; 
+    memset(&info, 0, sizeof(info)); 
 
-    struct sockaddr_in addr = {
-        .sin_family = AF_INET, 
-        .sin_port = htons(PORT),
-        .sin_addr.s_addr = INADDR_ANY
-    };
+    info.port = PORT; 
+    info.protocols = protocols; 
+    info.gid = -1; 
+    info.uid = -1;
+    info.options = LWS_SERVER_OPTION_HTTP_HEADERS_SECURITY_BEST_PRACTICES_ENFORCE;
 
-    bind(server_fd, (struct sockaddr*)&addr, sizeof(addr)); 
-    listen(server_fd, 10);
+    struct lws_context *context = lws_create_context(&info); 
 
-    printf("server running on port: %d", PORT);
-
-
-    while (1) {
-        int client_fd = accept(server_fd, NULL, NULL);
-        if (client_fd < 0) continue;
-
-        char buffer[BUFFER_SIZE] = {0};
-        read(client_fd, buffer, sizeof(buffer) - 1);
-
-        char method[8], path[256];
-        sscanf(buffer, "%s %s", method, path);
-        if (strcmp(method, "GET") == 0) {
-
-            if (strcmp(path, WS_PATH) == 0) {
-                //todo, dispatch to ws_service
-            }else {
-                serve_file(client_fd, path); 
-            }
-        }
-        close(client_fd);
+    if (!context) {
+        fprintf(stderr, "failed to create context"); 
+        return NULL;
     }
 
-    close(server_fd);
-    return 0;
+    printf("server running!");
+    while (1) {
+        lws_service(context, 0);
+    }
+
+    lws_context_destroy(context);
+    return NULL;
 }

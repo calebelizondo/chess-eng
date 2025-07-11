@@ -7,11 +7,14 @@ RUN apk update && apk add gcc \
     cmake \
     openssl-dev \
     g++ \
-    linux-headers
+    linux-headers \
+    libwebsockets-dev
 
 WORKDIR app
-COPY . .
-RUN make DEPS_ONLY=true
+COPY ./entrypoint.sh ./entrypoint.sh
+COPY ./public ./public
+COPY ./Makefile ./Makefile
+COPY ./src ./src
 RUN make
 
 CMD ["./entrypoint.sh"]
