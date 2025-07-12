@@ -10,6 +10,9 @@ RUN apk update && apk add gcc \
     linux-headers \
     libwebsockets-dev
 
+
+RUN wget https://github.com/nlohmann/json/releases/latest/download/json.hpp -O /usr/include/json.hpp
+
 WORKDIR app
 COPY ./entrypoint.sh ./entrypoint.sh
 COPY ./public ./public
