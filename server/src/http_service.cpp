@@ -15,6 +15,7 @@ using json = nlohmann::json;
 
 #define PORT 8080
 #define BUFFER_SIZE 4096
+#define READ_CHUNK_SIZE 4096
 #define STATIC_DIR "../public"
 
 
@@ -23,7 +24,9 @@ std::map<std::string, struct lws*>client_map;
 const char* get_mime_type(const char* path) {
     if (strstr(path, ".html")) return "text/html";
     if (strstr(path, ".js")) return "application/javascript";
-    if (strstr(path, ".wasm")) return "application/wasm"; 
+    if (strstr(path, ".wasm")) return "application/wasm";
+    if (strstr(path, ".css")) return "text/css";
+    if (strstr(path, ".svg")) return "image/svg+xml";
     return "application/octet-stream";
 }
 
@@ -48,10 +51,35 @@ int forward(std::string to, std::string message, size_t len) {
     return -1;
 }
 
+int send_404(struct lws *wsi) {
+    const char *not_found_body = "404 Not Found";
+    unsigned char buffer[LWS_PRE + 256], *p = &buffer[LWS_PRE], *end = p + 256;
+
+    // Add status line and Content-Type
+    if (lws_add_http_common_headers(wsi, HTTP_STATUS_NOT_FOUND, "text/plain", strlen(not_found_body), &p, end)) {
+        return -1;
+    }
+
+    if (lws_finalize_http_header(wsi, &p, end)) {
+        return -1;
+    }
+
+    // Send headers
+    if (lws_write(wsi, &buffer[LWS_PRE], p - &buffer[LWS_PRE], LWS_WRITE_HTTP_HEADERS) < 0) {
+        return -1;
+    }
+
+    // Send body
+    if (lws_write(wsi, (unsigned char*)not_found_body, strlen(not_found_body), LWS_WRITE_HTTP_FINAL) < 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
+
+
 static int callback_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
-    printf("callback_ws: reason=%d\n", reason);
-    printf("callback_established: %d\n", LWS_CALLBACK_ESTABLISHED);
-    fflush(stdout);
     switch (reason) {
         case LWS_CALLBACK_ESTABLISHED: {
 
@@ -101,23 +129,109 @@ static int callback_ws(struct lws *wsi, enum lws_callback_reasons reason, void *
 
     return 0;
 }
-
 static int callback_http(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len) {
     switch (reason) {
         case LWS_CALLBACK_HTTP: {
-            char filepath[512];
-            const char *requested = (const char*) in;
+            printf("file requested: %s\n", (const char*) in);
+            fflush(stdout);
 
-            snprintf(filepath, sizeof(filepath), "%s%s", STATIC_DIR, requested); 
+            char filepath[512];
+            snprintf(filepath, sizeof(filepath), "%s%s", STATIC_DIR, (const char*) in);
+
+            printf("filepath: %s\n", (const char*) filepath);
+            fflush(stdout);
+
+            int fd = open(filepath, O_RDONLY);
+            if (fd < 0) {
+                printf("File not found: %s\n", filepath);
+                fflush(stdout);
+                return send_404(wsi);
+            }
+
+            struct stat file_stat;
+            if (fstat(fd, &file_stat) < 0) {
+                printf("File stat noit found: %s\n", filepath);
+                fflush(stdout);
+                close(fd);
+                return send_404(wsi);
+            }
+
             const char* mime = get_mime_type(filepath);
-            if (lws_serve_http_file(wsi, filepath, mime, NULL, 0)) {
+            unsigned char buffer[LWS_PRE + 2048], *p = &buffer[LWS_PRE], *end = p + 2048;
+
+            if (lws_add_http_common_headers(wsi, HTTP_STATUS_OK, mime, file_stat.st_size, &p, end)) {
+                printf("adding headers failed %s\n", filepath);
+                fflush(stdout);
+                close(fd);
                 return -1;
             }
 
+            if (lws_add_http_header_by_name(
+                    wsi,
+                    (const unsigned char*) "cross-origin-opener-policy",
+                    (const unsigned char*) "same-origin",
+                    strlen("same-origin"), &p, end) ||
+
+                lws_add_http_header_by_name(
+                    wsi,
+                    (const unsigned char*) "cross-origin-embedder-policy",
+                    (const unsigned char*) "require-corp",
+                    strlen("require-corp"), &p, end)) {
+                printf("adding custom headers failed: %s\n", filepath);
+                fflush(stdout);
+                close(fd);
+                return -1;
+            }
+
+
+            /* TEMPORARY */
+            if (lws_add_http_header_by_name(
+                    wsi,
+                    (const unsigned char*) "content-security-policy",
+                    (const unsigned char*) "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self'; connect-src 'self' ws:;",
+                    strlen("default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self'; connect-src 'self' ws:;"),
+                    &p, end)) {
+                close(fd);
+                return -1;
+            }
+
+            if (lws_finalize_http_header(wsi, &p, end)) {
+                printf("finalizing headers failed: %s\n", filepath);
+                fflush(stdout);
+                close(fd);
+                return -1;
+            }
+
+            if (lws_write(wsi, &buffer[LWS_PRE], p - &buffer[LWS_PRE], LWS_WRITE_HTTP_HEADERS) < 0) {
+                printf("write failed: %s\n", filepath);
+                fflush(stdout);
+                close(fd);
+                return -1;
+            }
+
+            char file_buf[READ_CHUNK_SIZE];
+            ssize_t bytes_read;
+
+            while ((bytes_read = read(fd, file_buf, READ_CHUNK_SIZE)) > 0) {
+                lws_write_protocol flags = (bytes_read < READ_CHUNK_SIZE) ? LWS_WRITE_HTTP_FINAL : LWS_WRITE_HTTP;
+
+                if (lws_write(wsi, (unsigned char*)file_buf, bytes_read, flags) < 0) {
+                    close(fd);
+                    return -1;
+                }
+
+                if (flags == LWS_WRITE_HTTP_FINAL) break;
+            }
+            printf("stream done: %s\n", filepath);
+            fflush(stdout);
+            close(fd);
             return 0;
         }
+
         case LWS_CALLBACK_HTTP_FILE_COMPLETION:
+            // Close the connection after file has been sent
             return -1;
+
         default:
             break;
     }
