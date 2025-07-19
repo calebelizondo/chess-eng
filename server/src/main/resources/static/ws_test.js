@@ -1,6 +1,6 @@
 const hostname = "localhost:8080";
-const WS_URL = `ws://${hostname}/ws_connect`;
-const socket = new WebSocket(WS_URL, 'ws-protocol');
+const WS_URL = `ws://${hostname}/ws`;
+const socket = new WebSocket(WS_URL);
 
 
 const input_element = document.getElementById("code_field");
@@ -28,8 +28,6 @@ socket.addEventListener("open", async () => {
 
     offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
-
-    socket.send("hello server!");
 });
 
 socket.addEventListener("message", async (event) => {
@@ -40,7 +38,7 @@ socket.addEventListener("message", async (event) => {
 
     switch (payload.type) {
         case "init":
-            client_id = payload.id;
+            client_id = payload.value;
             break;
 
         case "offer":
