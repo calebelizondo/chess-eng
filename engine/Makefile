@@ -2,7 +2,7 @@
 CC = emcc
 
 SRC_DIR = src
-BUILD_DIR = ../interface/public/build
+BUILD_DIR = ../client/public/build
 #BUILD_DIR = ./build
 
 SRC = $(wildcard $(SRC_DIR)/*.c)

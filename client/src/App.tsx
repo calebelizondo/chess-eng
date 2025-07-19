@@ -5,6 +5,7 @@ import { initEngine } from './Engine/Engine';
 import { GameStateProvider } from './GameState/GameState';
 import Menu from './Menu/Menu';
 import EvalBar from './EvalBar/EvalBar';
+import Chat from './Chat/Chat';
 
 function App() {
   const [engineReady, setEngineReady] = useState(false);
@@ -33,6 +34,7 @@ function App() {
           <Board />
         <Menu />
       </div>
+      <Chat />
     </GameStateProvider>
   );
 }
