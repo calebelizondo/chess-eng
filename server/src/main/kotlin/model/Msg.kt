@@ -10,16 +10,9 @@ data class ServerMsg (
 )
 
 @Serializable
-data class IceCandidate(
-    val candidate: String,
-    val sdpMid: String? = null,
-    val sdpMLineIndex: Int? = null
-)
-
-@Serializable
 data class ClientMsg (
     val type: String,
-    val to: String,
+    val to: String?,
     val from: String,
     val sdp: JsonElement? = null,
     val candidate: JsonElement? = null //ice candidate
