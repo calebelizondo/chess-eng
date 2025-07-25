@@ -1,44 +1,78 @@
-import assert from "node:assert";
-
 const hostname = "localhost:8080";
-const WS_URL = `ws://${hostname}/ws_connect`;
+const WS_URL = `ws://${hostname}/ws`;
 
 class P2PConnection { 
 
     private client_id: string | null;
     private peer_id: string | null;
-    private peerConnection: RTCPeerConnection | null;
-    private chatChannel: RTCDataChannel | null;
+    private peerConnection: RTCPeerConnection;
+    private moveChannel: RTCDataChannel;
 
     private offer: RTCSessionDescriptionInit | null;
     private answer: RTCSessionDescriptionInit | null;
     private socket: WebSocket;
 
+    private socketListener: (event: any) => void; 
+    public applyPeerMove: ((move: {to: string, from: string}) => void) | null;
+    public startPeerInitiatedGame: (() => void);
+
+
     constructor() {
 
         this.client_id = null;
         this.peer_id = null;
-        this.peerConnection = null;
-        this.chatChannel = null;
+        this.peerConnection = this.peerConnection = this.create_peer_connection();
+        this.moveChannel = this.peerConnection.createDataChannel("move");
+
+        this.applyPeerMove = null;
+        this.startPeerInitiatedGame = () => {};
+
+        this.moveChannel.onmessage = this.incomingMoveHandler.bind(this);
+        this.moveChannel.onopen = () => {console.log("channel opened"); this.startPeerInitiatedGame()};
 
         this.offer = null;
         this.answer = null;
 
-        this.socket = new WebSocket(WS_URL, 'ws-protocol');
-        this.socket.addEventListener('message', this.socket_listener);
+        this.socket = new WebSocket(WS_URL);
+        this.socketListener = this.socket_listener.bind(this);
+        this.socket.addEventListener('message', this.socketListener);
     }
 
+    private incomingMoveHandler = (ev: MessageEvent<any>) => {
+        try {
+            if (this.applyPeerMove) {
+                const payload: {type: "move", to: string, from: string} = JSON.parse(ev.data);
+                this.applyPeerMove({...payload});
+                this.moveChannel.send(JSON.stringify({type: "ack"}));
+            } else {
+                throw Error("no handler provided to process move!");
+            }
+        } catch (e) { 
+            this.moveChannel.send(JSON.stringify({type: "error", error: e}));
+        }
+    };
 
-    public chat(msg: string) {
-        assert(this.chatChannel !== null);
-        this.chatChannel.send(msg);
+    public async send_move(move: {from: string, to: string}): Promise<void> {
+        if (this.moveChannel === null) throw new Error("No peer connection");
+
+        return new Promise<void>((resolve, reject) => {
+            this.moveChannel.send(JSON.stringify({...move, type: "move"}));
+            this.moveChannel.onmessage = (ev: MessageEvent<any>) => {
+                const payload = JSON.parse(ev.data);
+                if (payload.type === "error") { 
+                    this.moveChannel.onmessage = this.incomingMoveHandler;
+                    reject(new Error(payload.error));
+                } else if (payload.type === "ack") {
+                    console.log("got ack!");
+                    this.moveChannel.onmessage = this.incomingMoveHandler;
+                    resolve();
+                }
+            }
+        });
     }
 
-    public async init_connection(peer_id: string) {
-        assert(this.client_id !== null);
+    public async init_connection(peer_id: string): Promise<void> {
         this.peer_id = peer_id;
-
-        this.peerConnection = this.create_peer_connection();
 
         this.offer = await this.peerConnection.createOffer();
         await this.peerConnection.setLocalDescription(this.offer);
@@ -51,6 +85,27 @@ class P2PConnection {
         };
 
         this.socket.send(JSON.stringify(offer));
+
+        return new Promise((resolve, reject) => {
+
+            const timeout = setTimeout(() => 
+                reject(new Error("Timed out, try again")), 1500);
+
+            if (!this.moveChannel) {
+                return reject(new Error("Channel failed to open"));
+            }
+
+            this.moveChannel.onopen = () => {
+                clearTimeout(timeout);
+                console.log("channel opened")
+                resolve();
+            };
+
+            this.moveChannel.onerror = (e) => {
+                clearTimeout(timeout);
+                reject(new Error("Data channel error: " + e))
+            }
+        });
     }
 
     private create_peer_connection() {
@@ -68,35 +123,22 @@ class P2PConnection {
             }
         };
 
-        this.chatChannel = peerConnection.createDataChannel("chat");
-        this.chatChannel.onopen = () => {
-            console.log("Data channel open!");
-        };
-
-        this.chatChannel.onmessage = (e) => {
-            console.log("Received message:", e.data);
-        };
-
         return peerConnection;
     }
 
-    private async socket_listener(event: any) {
+    private socket_listener = async (event: any) => {
         const payload = JSON.parse(event.data);
 
         switch (payload.type) {
             case "init":
-                this.client_id = payload.id;
+                this.client_id = payload.value;
+                console.log("client code: ", this.client_id);
                 break;
 
             case "offer":
 
                 this.peer_id = payload.from;
                 this.peerConnection = this.create_peer_connection();
-
-                // peerConnection.ondatachannel = (event) => {
-                //     dataChannel = event.channel;
-                //     setupDataChannel(dataChannel);
-                // };
 
                 const remoteDesc = new RTCSessionDescription({
                     type: "offer",
@@ -114,6 +156,14 @@ class P2PConnection {
                     to: this.peer_id,
                     sdp: this.answer.sdp
                 }));
+
+                this.peerConnection.ondatachannel = (event: RTCDataChannelEvent) => {
+                    this.moveChannel = event.channel;
+                    this.moveChannel.onmessage = this.incomingMoveHandler.bind(this);
+                    this.moveChannel.onopen = () => {
+                        this.startPeerInitiatedGame();
+                    };
+                };
                 break;
 
             case "answer":
@@ -123,10 +173,6 @@ class P2PConnection {
                     sdp: payload.sdp
                 });
 
-                assert(nRemoteDesc !== null);
-                assert(this.peerConnection !== null);
-                
-                // await this.peerConnection.setRemoteDescription(nRemoteDesc);
                 await this.peerConnection?.setRemoteDescription(nRemoteDesc);
 
                 break;
@@ -138,8 +184,7 @@ class P2PConnection {
                 break;
 
             case "error":
-                console.error("Server error:", payload);
-                break;
+                throw new Error("Error recieved from signaling server: " + payload.value);
         }
     }
 
@@ -150,159 +195,3 @@ class P2PConnection {
 
 
 export const CONNECTION = new P2PConnection();
-
-// const socket = new WebSocket(WS_URL, 'ws-protocol');
-
-
-// const input_element = document.getElementById("code_field");
-// const button = document.getElementById("submit_button");
-// const msg_btn = document.getElementById("send_msg");
-// const msg_fld = document.getElementById("msg_field");
-
-
-// let client_id;
-// let peer_id;
-// let peerConnection;
-// let dataChannel;
-// let offer;
-
-// socket.addEventListener("open", async () => {
-//     console.log("WebSocket connected!");
-
-
-//     peerConnection = createPeerConnection();
-
-
-//     dataChannel = peerConnection.createDataChannel("chat");
-//     setupDataChannel(dataChannel);
-
-
-//     offer = await peerConnection.createOffer();
-//     await peerConnection.setLocalDescription(offer);
-
-//     socket.send("hello server!");
-// });
-
-// socket.addEventListener("message", async (event) => {
-//     const payload = JSON.parse(event.data);
-//     console.log("Received:", payload);
-
-//     let remoteDesc;
-
-//     switch (payload.type) {
-//         case "init":
-//             client_id = payload.id;
-//             break;
-
-//         case "offer":
-//             peer_id = payload.from;
-//             peerConnection = createPeerConnection();
-
-//             peerConnection.ondatachannel = (event) => {
-//                 dataChannel = event.channel;
-//                 setupDataChannel(dataChannel);
-//             };
-
-//             remoteDesc = new RTCSessionDescription({
-//                 type: "offer",
-//                 sdp: payload.sdp
-//             });
-
-//             await peerConnection.setRemoteDescription(remoteDesc);
-
-//             const answer = await peerConnection.createAnswer();
-//             await peerConnection.setLocalDescription(answer);
-
-//             socket.send(JSON.stringify({
-//                 type: "answer",
-//                 from: client_id,
-//                 to: peer_id,
-//                 sdp: answer.sdp
-//             }));
-//             break;
-
-//         case "answer":
-//             peer_id = payload.from;
-//             remoteDesc = new RTCSessionDescription({
-//                 type: "answer",
-//                 sdp: payload.sdp
-//             });
-//             await peerConnection.setRemoteDescription(remoteDesc);
-//             break;
-
-//         case "ice":
-//             if (peerConnection) {
-//                 await peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate));
-//             }
-//             break;
-
-//         case "error":
-//             console.error("Server error:", payload);
-//             break;
-//     }
-// });
-
-// socket.addEventListener("error", (event) => {
-//     console.error("WebSocket error:", event);
-// });
-
-
-// button.addEventListener("click", () => {
-//     sendOffer(client_id, input_element.value);
-// });
-
-
-// msg_btn.addEventListener("click", () => {
-//     if (dataChannel && dataChannel.readyState === "open") {
-//         const msg = msg_fld.value;
-//         dataChannel.send(msg);
-//         console.log("Sent message:", msg);
-//     } else {
-//         console.warn("Data channel not open.");
-//     }
-// });
-
-
-// function createPeerConnection() {
-//     const pc = new RTCPeerConnection({
-//         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-//     });
-
-//     pc.onicecandidate = (event) => {
-//         if (event.candidate) {
-//             socket.send(JSON.stringify({
-//                 type: "ice",
-//                 from: client_id,
-//                 to: peer_id,
-//                 candidate: event.candidate
-//             }));
-//         }
-//     };
-
-//     return pc;
-// }
-
-
-// function setupDataChannel(channel) {
-//     channel.onopen = () => {
-//         console.log("Data channel open!");
-//     };
-
-//     channel.onmessage = (e) => {
-//         console.log("Received message:", e.data);
-//     };
-// }
-
-// function sendOffer(selfId, targetId) {
-//     peer_id = targetId;
-
-//     socket.send(JSON.stringify({
-//         type: "offer",
-//         from: selfId,
-//         to: targetId,
-//         sdp: offer.sdp
-//     }));
-// }
-
-
-

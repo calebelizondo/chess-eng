@@ -14,7 +14,7 @@ const EvalBar = () => {
     return (
         <div style={{
             width: '40px',
-            height: '1200px',
+            height: '100%',
             backgroundColor: '#000',
             position: 'relative',
             display: 'flex',

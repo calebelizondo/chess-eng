@@ -32,6 +32,7 @@ class Engine {
   public isEnemyInCheck: () => boolean;
   public getScore: () => number;
   public isWhitesTurn: () => boolean;
+  public engineMove: () => String;
 
   constructor(module: any) {
     const print = module.cwrap('printCurrentBoardState', null, []);
@@ -43,6 +44,7 @@ class Engine {
     const getEnemyInCheck = module.cwrap('isEnemyInCheck', 'boolean', []);
     const getPlayerScore = module.cwrap('getScore', 'number', []);
     const isWhitesTurn = module.cwrap('isWhitesTurn', 'boolean', []);
+    const engineMoveF = module.cwrap('engineMove', 'string', []);
 
     this.printBoard = () => {
       print();
@@ -97,6 +99,10 @@ class Engine {
 
     this.isWhitesTurn = () => {
       return isWhitesTurn();
+    }
+
+    this.engineMove = () => {
+      return engineMoveF();
     }
   }
 }
