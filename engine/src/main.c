@@ -11,6 +11,7 @@
 
 BoardState* current_board_state = NULL;
 MoveList* available_moves = NULL;
+MoveList* available_moves_for_selected_piece = NULL;
 int score = 0;
 
 int main() {
@@ -19,18 +20,22 @@ int main() {
 
     current_board_state = malloc(sizeof(STARTING_BOARD_STATE));
     available_moves = malloc(sizeof(MoveList));
+    available_moves_for_selected_piece = malloc(sizeof(MoveList));
+
     updatePositions(current_board_state);
     initAttackMaps(current_board_state);
     uint64_t starting_hash = hash(current_board_state);
     current_board_state->hash = starting_hash;
 
 
-    if (current_board_state == NULL || available_moves == NULL) {
+    if (current_board_state == NULL || available_moves == NULL || available_moves_for_selected_piece == NULL) {
         return -1;
     }
 
     *current_board_state = STARTING_BOARD_STATE;
+
     available_moves->count = 0;
+    getAllValidMoves(current_board_state, available_moves);
     initMoveMaps();
     
     return 0;
@@ -44,6 +49,13 @@ void printCurrentBoardState() {
 EMSCRIPTEN_KEEPALIVE
 char* resetGame() {
     *current_board_state = STARTING_BOARD_STATE;
+    updatePositions(current_board_state);
+    initAttackMaps(current_board_state);
+    uint64_t starting_hash = hash(current_board_state);
+    current_board_state->hash = starting_hash;
+
+    available_moves->count = 0;
+    getAllValidMoves(current_board_state, available_moves);
     return boardStateToArray(current_board_state);
 }
 
@@ -72,8 +84,7 @@ char* movePiece(char* from, char* to, bool isCastle, bool isEnpassant, bool isPr
 
     assert(move_found);
     available_moves->count = 0;
-    //-opponent's score = player's score
-    score = -makeOpponentMove(current_board_state);
+    getAllValidMoves(current_board_state, available_moves);
 
     return getCurrentBoardState();
 }
@@ -82,12 +93,12 @@ EMSCRIPTEN_KEEPALIVE
 char* getValidPieceMoves(char* piece) {
 
     //assert(current_board_state->turn == WHITE);
-    available_moves->count = 0;
-    getValidMoves(stringPositionToBitmap(piece), current_board_state, available_moves);
+    available_moves_for_selected_piece->count = 0;
+    getValidMoves(stringPositionToBitmap(piece), current_board_state, available_moves_for_selected_piece);
 
     uint64_t moves_bitmap = 0;
-    for (size_t i = 0; i < available_moves->count; i++) {
-        moves_bitmap |= available_moves->moves[i].to;
+    for (size_t i = 0; i < available_moves_for_selected_piece->count; i++) {
+        moves_bitmap |= available_moves_for_selected_piece->moves[i].to;
     }
 
     return moveBitmapToString(moves_bitmap);
@@ -111,5 +122,13 @@ int getScore() {
 
 EMSCRIPTEN_KEEPALIVE
 bool isWhitesTurn() {
-    return current_board_state->turn;
+    return current_board_state->turn == WHITE;
+}
+
+EMSCRIPTEN_KEEPALIVE
+char* engineMove() {
+    makeOpponentMove(current_board_state);
+    available_moves->count = 0;
+    getAllValidMoves(current_board_state, available_moves);
+    return getCurrentBoardState();
 }

@@ -14,12 +14,12 @@ const Piece: React.FC<{char: string, index: number, space: Space, validMove: boo
   if (gameState === null) return <></>;
 
   const {state, setActivePiece, moveActivePieceTo} = gameState;
-  const {activePiece} = state;
+  const {activePiece, turn, side} = state;
 
 
   const isChecked = () => {
     if (piece?.type === "KING") {
-      if (piece.side === "WHITE") return ENGINE.isPlayerInCheck();
+      if (piece.side === side) return ENGINE.isPlayerInCheck();
       else return ENGINE.isEnemyInCheck();
     }
 
@@ -46,13 +46,13 @@ const Piece: React.FC<{char: string, index: number, space: Space, validMove: boo
         style={{
           width: "100%", 
           height: "100%",
-          filter: isChecked() ? "drop-shadow(0 0 15px rgba(255, 0, 0, 0.5))" :
+          filter: isChecked() ? "drop-shadow(0 0 20px rgba(255, 0, 0, 0.72))" :
             (activePiece === space ? "drop-shadow(0 0 10px rgba(0, 0, 0, 0.5))" : "none")
         }}
         src={getSVG(piece.type, piece.side)} alt={`${piece.side} ${piece.type}`} 
         onClick={() => {
           if (validMove) moveActivePieceTo(space);
-          else if (piece.side === "WHITE") setActivePiece(space);
+          else if (piece.side === side && side === turn) setActivePiece(space);
           else setActivePiece(null);
         }}/>
     </>

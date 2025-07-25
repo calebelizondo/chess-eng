@@ -125,7 +125,5 @@ int makeOptimalMove(BoardState* boardState, int depth) {
 }
 
 int makeOpponentMove(BoardState* boardState) {
-    assert(boardState->turn == BLACK);
-
     return makeOptimalMove(boardState, SEARCH_DEPTH);
 }
