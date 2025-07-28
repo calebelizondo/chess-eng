@@ -1,3 +1,5 @@
+
+
 ## TODO: 
 - Dockerize
 - Set up CI/CD
@@ -8,6 +10,8 @@
 - hash castle rights, en passante etc
 - remove castle rights when rook moves
 - errors with check masks and castling
+- add heuristics
+- measure performance, ELO on start
 
 ### CLIENT: 
 - clean up UI
