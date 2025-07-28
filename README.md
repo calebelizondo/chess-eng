@@ -12,6 +12,9 @@
 ### CLIENT: 
 - clean up UI
 - support smaller screens
+- let players select between black/white sides
+- let players resign, draw
+- indicate wins/losses/draws
 
 ### SERVER + CLIENT:
 - support reconnects
